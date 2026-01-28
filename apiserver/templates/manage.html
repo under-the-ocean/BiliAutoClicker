@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ocean之下：配置管理</title>
+    <style>
+        /* 基础样式 */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+        body { background: #f5f7fa; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header h1 { color: #2c3e50; }
+        .nav-links { display: flex; gap: 15px; }
+        .nav-link { color: #3498db; text-decoration: none; padding: 8px 12px; border-radius: 4px; }
+        .nav-link:hover, .nav-link.active { background: #3498db; color: white; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 20px; }
+        .card h2 { color: #2c3e50; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #555; font-weight: 500; }
+        .form-control { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; text-decoration: none; }
+        .btn-primary { background: #3498db; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-default { background: #f5f5f5; color: #333; }
+        .table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .table th, .table td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        .table th { background: #fafbfc; color: #555; }
+        .table tr:hover { background: #f9fafb; }
+        .action-buttons { display: flex; gap: 8px; }
+        .flash-messages { margin-bottom: 20px; }
+        .flash-success { padding: 10px; background: #dff0d8; color: #3c763d; border-radius: 4px; margin-bottom: 10px; }
+        .flash-error { padding: 10px; background: #f2dede; color: #a94442; border-radius: 4px; margin-bottom: 10px; }
+        .apply-form { margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 6px; display: none; }
+        .apply-form h3 { margin-bottom: 15px; color: #2c3e50; }
+        .hint-text { color: #666; font-size: 13px; margin-top: 5px; }
+        .login-link { color: #3498db; text-decoration: none; }
+        
+        /* 错误提示样式 */
+        .error-text { color: #dc3545; font-size: 13px; margin-top: 5px; display: none; }
+        .form-group.error .form-control { border-color: #dc3545; }
+        .form-group.error .error-text { display: block; }
+        .submit-status { margin-top: 10px; padding: 10px; border-radius: 4px; display: none; }
+        .status-success { background: #dff0d8; color: #3c763d; }
+        .status-error { background: #f2dede; color: #a94442; }
+        
+        /* 页脚样式 */
+        .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #666; }
+        .author-info { margin-top: 10px; font-size: 14px; }
+        .author-link { color: #3498db; text-decoration: none; }
+        .author-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部导航 -->
+        <div class="header">
+            <h1>管理中心</h1>
+            <div style="display: flex; align-items: center; gap: 20px;">
+                <div class="nav-links">
+                    <a href="/manage" class="nav-link active">配置管理</a>
+                    <a href="/client_stats" class="nav-link">数据统计</a>
+                    {% if is_admin %}
+                        <a href="/applications" class="nav-link">修改申请</a>
+                    {% endif %}
+                </div>
+                <div>
+                    {% if is_admin %}
+                        <span>管理员: {{ session.username }} </span>
+                        <a href="/change_password" class="btn btn-default" style="margin-left: 10px;">修改密码</a>
+                        <a href="/logout" class="btn btn-default">退出</a>
+                    {% else %}
+                        <a href="/login" class="login-link">管理员登录</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 消息提示 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- 1. 基础配置 -->
+        <div class="card">
+            <h2>基础配置</h2>
+            <form method="post" action="/update_base_config">
+                <div class="form-group">
+                    <label for="cookies_dir">Cookies存储目录</label>
+                    <input type="text" id="cookies_dir" name="cookies_dir" 
+                           value="{{ base_config.cookies_dir if base_config else '' }}" 
+                           class="form-control" {% if not is_admin %}readonly{% endif %}>
+                </div>
+                <div class="form-group">
+                    <label for="reward_base_url">奖励页面基础URL</label>
+                    <input type="text" id="reward_base_url" name="reward_base_url" 
+                           value="{{ base_config.reward_base_url if base_config else '' }}" 
+                           class="form-control" {% if not is_admin %}readonly{% endif %}>
+                </div>
+                <div class="form-group">
+                    <label for="reward_claim_selector">奖励领取选择器</label>
+                    <input type="text" id="reward_claim_selector" name="reward_claim_selector" 
+                           value="{{ base_config.reward_claim_selector if base_config else '' }}" 
+                           class="form-control" {% if not is_admin %}readonly{% endif %}>
+                </div>
+                <div class="form-group">
+                    <label for="max_reload_attempts">最大重试次数</label>
+                    <input type="number" id="max_reload_attempts" name="max_reload_attempts" 
+                           value="{{ base_config.max_reload_attempts if base_config else 3 }}" 
+                           class="form-control" {% if not is_admin %}readonly{% endif %}>
+                </div>
+                
+                <!-- 按钮区域 -->
+                <div style="margin-top: 15px;">
+                    {% if is_admin %}
+                        <button type="submit" class="btn btn-primary">保存配置</button>
+                    {% else %}
+                        <button type="button" class="btn btn-success" onclick="showBaseConfigApplyForm()">
+                            提交修改申请
+                        </button>
+                    {% endif %}
+                </div>
+            </form>
+
+            <!-- 基础配置修改申请表单 -->
+            {% if not is_admin %}
+                <div id="baseConfigApplyForm" class="apply-form">
+                    <h3>提交基础配置修改申请</h3>
+                    <form id="baseConfigForm" method="post" action="/submit_apply">
+                        <input type="hidden" name="apply_type" value="base_config">
+                        <input type="hidden" name="apply_data" id="base_apply_data">
+                        
+                        <div class="form-group">
+                            <label for="new_cookies_dir">Cookies存储目录（新值）</label>
+                            <input type="text" id="new_cookies_dir" 
+                                   value="{{ base_config.cookies_dir if base_config else '' }}" 
+                                   class="form-control">
+                            <div class="error-text" id="err_cookies_dir">请填写存储目录</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="new_reward_base_url">奖励页面基础URL（新值）</label>
+                            <input type="text" id="new_reward_base_url" 
+                                   value="{{ base_config.reward_base_url if base_config else '' }}" 
+                                   class="form-control">
+                            <div class="error-text" id="err_reward_url">请填写有效的URL</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="new_reward_claim_selector">奖励领取选择器（新值）</label>
+                            <input type="text" id="new_reward_claim_selector" 
+                                   value="{{ base_config.reward_claim_selector if base_config else '' }}" 
+                                   class="form-control">
+                            <div class="error-text" id="err_selector">请填写选择器</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="new_max_reload_attempts">最大重试次数（新值）</label>
+                            <input type="number" id="new_max_reload_attempts" 
+                                   value="{{ base_config.max_reload_attempts if base_config else 3 }}" 
+                                   class="form-control" min="1" max="10">
+                            <div class="error-text" id="err_reload">请填写1-10之间的数字</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="base_config_desc">修改理由（必填）</label>
+                            <textarea id="base_config_desc" rows="3" 
+                                      class="form-control" placeholder="请说明修改原因..."></textarea>
+                            <div class="error-text" id="err_base_desc">请填写修改理由</div>
+                        </div>
+                        
+                        <div class="submit-status" id="base_submit_status"></div>
+                        <div>
+                            <button type="submit" class="btn btn-primary">提交申请</button>
+                            <button type="button" class="btn btn-default" onclick="hideBaseConfigApplyForm()">取消</button>
+                        </div>
+                    </form>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- 2. 任务列表 -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2>任务ID管理</h2>
+                {% if is_admin %}
+                    <button class="btn btn-success" onclick="document.getElementById('addTaskForm').style.display='block'">
+                        添加任务
+                    </button>
+                {% else %}
+                    <button class="btn btn-success" onclick="document.getElementById('taskApplyForm').style.display='block'">
+                        提交任务修改申请
+                    </button>
+                {% endif %}
+            </div>
+            
+            <!-- 管理员添加任务表单 -->
+            {% if is_admin %}
+                <div id="addTaskForm" style="display: none; margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 6px;">
+                    <h3 style="margin-bottom: 15px;">添加新任务</h3>
+                    <form method="post" action="/add_task">
+                        <div class="form-group">
+                            <label for="task_key">任务标识（唯一）</label>
+                            <input type="text" id="task_key" name="task_key" class="form-control" placeholder="例如：task_001" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="task_value">任务ID值</label>
+                            <input type="text" id="task_value" name="task_value" class="form-control" placeholder="例如：123456" required>
+                        </div>
+                        <div>
+                            <button type="submit" class="btn btn-primary">确认添加</button>
+                            <button type="button" class="btn btn-default" onclick="document.getElementById('addTaskForm').style.display='none'">取消</button>
+                        </div>
+                    </form>
+                </div>
+            {% endif %}
+            
+            <!-- 任务修改申请表单 -->
+            {% if not is_admin %}
+                <div id="taskApplyForm" class="apply-form">
+                    <h3 style="margin-bottom: 15px;">提交任务修改申请</h3>
+                    <form id="taskApplyFormElement" method="post" action="/submit_apply">
+                        <input type="hidden" name="apply_type" value="task">
+                        <input type="hidden" name="apply_data" id="task_apply_data">
+                        
+                        <div class="form-group">
+                            <label for="task_action">操作类型</label>
+                            <select id="task_action" class="form-control" onchange="toggleTaskApplyFields(this.value)">
+                                <option value="add">新增任务</option>
+                                <option value="edit">编辑任务</option>
+                                <option value="delete">删除任务</option>
+                            </select>
+                        </div>
+                        
+                        <!-- 任务选择（编辑/删除时显示） -->
+                        <div id="task_select_group" class="form-group" style="display: none;">
+                            <label for="task_id">选择任务</label>
+                            <select id="task_id" class="form-control">
+                                {% for task in tasks %}
+                                    <option value="{{ task.id }}">{{ task.task_key }}（{{ task.task_value }}）</option>
+                                {% endfor %}
+                            </select>
+                            <div class="error-text" id="err_task_select">请选择任务</div>
+                        </div>
+                        
+                        <!-- 新增/编辑任务的字段 -->
+                        <div id="task_add_fields" class="form-group">
+                            <label for="new_task_key">任务标识（唯一）</label>
+                            <input type="text" id="new_task_key" class="form-control" placeholder="例如：task_001">
+                            <div class="error-text" id="err_task_key">请填写任务标识</div>
+                        </div>
+                        <div id="task_value_fields" class="form-group">
+                            <label for="new_task_value">任务ID值</label>
+                            <input type="text" id="new_task_value" class="form-control" placeholder="例如：123456">
+                            <div class="error-text" id="err_task_value">请填写任务ID值</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="task_apply_desc">修改理由（必填）</label>
+                            <textarea id="task_apply_desc" rows="3" 
+                                      class="form-control" placeholder="请说明修改原因..."></textarea>
+                            <div class="error-text" id="err_task_desc">请填写修改理由</div>
+                        </div>
+                        
+                        <div class="submit-status" id="task_submit_status"></div>
+                        <div>
+                            <button type="submit" class="btn btn-primary">提交申请</button>
+                            <button type="button" class="btn btn-default" onclick="document.getElementById('taskApplyForm').style.display='none'">取消</button>
+                        </div>
+                    </form>
+                </div>
+            {% endif %}
+            
+            <!-- 任务列表 -->
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>任务标识</th>
+                        <th>任务ID值</th>
+                        <th>最后更新时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in tasks %}
+                    <tr>
+                        <td>{{ task.id }}</td>
+                        <td>{{ task.task_key }}</td>
+                        <td>{{ task.task_value }}</td>
+                        <td>{{ task.updated_at }}</td>
+                        <td>
+                            {% if is_admin %}
+                                <div class="action-buttons">
+                                    <a href="/edit_task/{{ task.id }}" class="btn btn-primary" style="padding: 4px 8px; font-size: 13px;">编辑</a>
+                                    <a href="/delete_task/{{ task.id }}" class="btn btn-danger" style="padding: 4px 8px; font-size: 13px;" onclick="return confirm('确定要删除此任务吗？')">删除</a>
+                                </div>
+                            {% else %}
+                                <span style="color: #666; font-size: 13px;">仅查看</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #666;">暂无任务数据</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 页脚（包含作者信息） -->
+        <div class="footer">
+            <p>© 2024 配置管理系统</p>
+            <div class="author-info">
+                作者: <a href="https://b23.tv/bRWJZMR" target="_blank" class="author-link">ocean之下【ocean之下的个人空间-哔哩哔哩】</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 基础配置申请表单控制
+        function showBaseConfigApplyForm() {
+            document.getElementById('baseConfigApplyForm').style.display = 'block';
+        }
+        
+        function hideBaseConfigApplyForm() {
+            document.getElementById('baseConfigApplyForm').style.display = 'none';
+            resetFormErrors('base');
+        }
+        
+        // 任务申请表单控制
+        function toggleTaskApplyFields(action) {
+            const selectGroup = document.getElementById('task_select_group');
+            const addFields = document.getElementById('task_add_fields');
+            const valueFields = document.getElementById('task_value_fields');
+            
+            if (action === 'add') {
+                selectGroup.style.display = 'none';
+                addFields.style.display = 'block';
+                valueFields.style.display = 'block';
+            } else if (action === 'edit') {
+                selectGroup.style.display = 'block';
+                addFields.style.display = 'block';
+                valueFields.style.display = 'block';
+            } else if (action === 'delete') {
+                selectGroup.style.display = 'block';
+                addFields.style.display = 'none';
+                valueFields.style.display = 'none';
+            }
+            resetFormErrors('task');
+        }
+        
+        // 重置表单错误提示
+        function resetFormErrors(prefix) {
+            const errorElements = document.querySelectorAll('[id^="err_' + prefix + '"]');
+            errorElements.forEach(el => {
+                el.parentElement.classList.remove('error');
+            });
+            document.getElementById(prefix + '_submit_status').style.display = 'none';
+        }
+        
+        // 基础配置申请提交验证
+        document.getElementById('baseConfigForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            resetFormErrors('base');
+            let isValid = true;
+            
+            // 收集表单数据
+            const formData = {
+                cookies_dir: document.getElementById('new_cookies_dir').value.trim(),
+                reward_base_url: document.getElementById('new_reward_base_url').value.trim(),
+                reward_claim_selector: document.getElementById('new_reward_claim_selector').value.trim(),
+                max_reload_attempts: document.getElementById('new_max_reload_attempts').value.trim(),
+                desc: document.getElementById('base_config_desc').value.trim()
+            };
+            
+            // 验证数据
+            if (!formData.cookies_dir) {
+                showError('err_cookies_dir', true);
+                isValid = false;
+            }
+            
+            if (!formData.reward_base_url || !formData.reward_base_url.startsWith('http')) {
+                showError('err_reward_url', true);
+                isValid = false;
+            }
+            
+            if (!formData.reward_claim_selector) {
+                showError('err_selector', true);
+                isValid = false;
+            }
+            
+            if (!formData.max_reload_attempts || isNaN(formData.max_reload_attempts) || 
+                formData.max_reload_attempts < 1 || formData.max_reload_attempts > 10) {
+                showError('err_reload', true);
+                isValid = false;
+            }
+            
+            if (!formData.desc) {
+                showError('err_base_desc', true);
+                isValid = false;
+            }
+            
+            // 验证通过，提交表单
+            if (isValid) {
+                document.getElementById('base_apply_data').value = JSON.stringify(formData);
+                this.submit();
+            }
+        });
+        
+        // 任务申请提交验证
+        document.getElementById('taskApplyFormElement').addEventListener('submit', function(e) {
+            e.preventDefault();
+            resetFormErrors('task');
+            let isValid = true;
+            const action = document.getElementById('task_action').value;
+            
+            // 收集表单数据
+            const formData = {
+                action: action,
+                task_id: action !== 'add' ? document.getElementById('task_id').value : null,
+                new_task_key: document.getElementById('new_task_key').value.trim(),
+                new_task_value: document.getElementById('new_task_value').value.trim(),
+                desc: document.getElementById('task_apply_desc').value.trim()
+            };
+            
+            // 验证数据
+            if (action !== 'add' && (!formData.task_id || formData.task_id === '')) {
+                showError('err_task_select', true);
+                isValid = false;
+            }
+            
+            if (action !== 'delete') {
+                if (!formData.new_task_key) {
+                    showError('err_task_key', true);
+                    isValid = false;
+                }
+                
+                if (!formData.new_task_value) {
+                    showError('err_task_value', true);
+                    isValid = false;
+                }
+            }
+            
+            if (!formData.desc) {
+                showError('err_task_desc', true);
+                isValid = false;
+            }
+            
+            // 验证通过，提交表单
+            if (isValid) {
+                document.getElementById('task_apply_data').value = JSON.stringify(formData);
+                this.submit();
+            }
+        });
+        
+        // 显示错误提示
+        function showError(elementId, show) {
+            const element = document.getElementById(elementId);
+            if (show) {
+                element.parentElement.classList.add('error');
+            } else {
+                element.parentElement.classList.remove('error');
+            }
+        }
+        
+        // 页面加载初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            const taskAction = document.getElementById('task_action');
+            if (taskAction) {
+                toggleTaskApplyFields(taskAction.value);
+            }
+        });
+    </script>
+</body>
+</html>
+    

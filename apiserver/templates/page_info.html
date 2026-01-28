@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>页面信息管理 - 配置服务器</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .stats-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-card h3 {
+            margin: 0;
+            font-size: 2em;
+        }
+        .stat-card p {
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .card-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+        }
+        .card-body {
+            padding: 20px;
+        }
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .table th,
+        .table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        .table-responsive {
+            overflow-x: auto;
+        }
+        .btn {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            list-style: none;
+            padding: 0;
+            margin: 20px 0 0 0;
+        }
+        .page-item {
+            margin: 0 5px;
+        }
+        .page-link {
+            padding: 8px 12px;
+            border: 1px solid #dee2e6;
+            background: white;
+            color: #007bff;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .page-item.active .page-link {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .text-muted {
+            color: #6c757d;
+        }
+        .alert {
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+        }
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .breadcrumb {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 16px 0;
+            display: flex;
+        }
+        .breadcrumb-item {
+            margin-right: 8px;
+        }
+        .breadcrumb-item:not(:last-child)::after {
+            content: "/";
+            margin-left: 8px;
+            color: #6c757d;
+        }
+        .breadcrumb-item a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>页面信息管理</h1>
+            <nav>
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/manage">首页</a></li>
+                    <li class="breadcrumb-item active">页面信息</li>
+                </ol>
+            </nav>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="stats-cards">
+            <div class="stat-card">
+                <h3>{{ stats.total_count }}</h3>
+                <p>总页面信息数</p>
+            </div>
+            <div class="stat-card">
+                <h3>{{ stats.device_count }}</h3>
+                <p>涉及设备数</p>
+            </div>
+            <div class="stat-card">
+                <h3>{{ stats.task_count }}</h3>
+                <p>涉及任务数</p>
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        {% if is_admin %}
+        <div class="action-buttons">
+            <form action="/process_tasks" method="POST" style="display: inline;">
+                <button type="submit" class="btn btn-success">处理任务数据</button>
+            </form>
+            <a href="/manage" class="btn">返回配置管理</a>
+        </div>
+        {% endif %}
+
+        <!-- 页面信息列表 -->
+        <div class="card">
+            <div class="card-header">
+                <h2 style="margin: 0;">页面信息列表</h2>
+            </div>
+            <div class="card-body">
+                {% if page_data.page_info %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>任务ID</th>
+                                <th>设备名称</th>
+                                <th>页面标题</th>
+                                <th>奖励信息</th>
+                                <th>提取时间</th>
+                                <th>创建时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for info in page_data.page_info %}
+                            <tr>
+                                <td>{{ info.id }}</td>
+                                <td><code>{{ info.task_id }}</code></td>
+                                <td>{{ info.device_name }}</td>
+                                <td>{{ info.section_title }}</td>
+                                <td>{{ info.award_info }}</td>
+                                <td>{{ info.extract_time }}</td>
+                                <td>{{ info.created_at }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 分页 -->
+                {% if page_data.total_pages > 1 %}
+                <nav>
+                    <ul class="pagination">
+                        {% for p in range(1, page_data.total_pages + 1) %}
+                        <li class="page-item {% if p == page_data.current_page %}active{% endif %}">
+                            <a class="page-link" href="/page_info?page={{ p }}">{{ p }}</a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </nav>
+                {% endif %}
+
+                {% else %}
+                <div class="text-center">
+                    <p class="text-muted">暂无页面信息数据</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 显示Flash消息
+        function showFlashMessages() {
+            // 从URL参数获取flash消息
+            const urlParams = new URLSearchParams(window.location.search);
+            const flash = urlParams.get('flash');
+            const flashType = urlParams.get('flash_type');
+            
+            if (flash) {
+                const alertClass = flashType === 'error' ? 'alert-error' : 
+                                 flashType === 'info' ? 'alert-info' : 'alert-success';
+                const alertDiv = document.createElement('div');
+                alertDiv.className = `alert ${alertClass}`;
+                alertDiv.textContent = decodeURIComponent(flash);
+                document.querySelector('.container').insertBefore(alertDiv, document.querySelector('.stats-cards'));
+                
+                // 清除URL参数
+                const newUrl = window.location.pathname + window.location.search.replace(/[?&]flash=[^&]+/, '').replace(/[?&]flash_type=[^&]+/, '');
+                window.history.replaceState({}, document.title, newUrl);
+            }
+        }
+
+        // 页面加载完成后显示flash消息
+        document.addEventListener('DOMContentLoaded', showFlashMessages);
+
+        // 处理任务按钮点击事件
+        document.addEventListener('DOMContentLoaded', function() {
+            const processBtn = document.querySelector('form[action="/process_tasks"] button');
+            if (processBtn) {
+                processBtn.addEventListener('click', function(e) {
+                    if (!confirm('确定要处理任务数据吗？这将根据页面信息自动更新任务配置。')) {
+                        e.preventDefault();
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
