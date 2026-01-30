@@ -379,7 +379,7 @@ def init_db():
         
         # 创建默认管理员账号 (admin/Admin123!)
         if not conn.execute('SELECT id FROM users WHERE username = "admin"').fetchone():
-            admin_pwd_hash = bcrypt.generate_password_hash('Undertheocean').decode('utf-8')
+            admin_pwd_hash = bcrypt.generate_password_hash('Admin123!').decode('utf-8')
             conn.execute('''
                 INSERT INTO users (username, password_hash, role)
                 VALUES (?, ?, ?)
