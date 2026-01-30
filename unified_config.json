@@ -1,0 +1,66 @@
+{
+  "client": {
+    "server_url": "http://biliapi.ocean.run.place",
+    "local_cookies_dir": "D:/autowatch_cookies"
+  },
+  "browser": {
+    "browser_type": "chromium",
+    "browser_executable_path": null
+  },
+  "app_config": {
+    "context_retry_count": 3,
+    "context_retry_delay": 10,
+    "disable_shutdown": false,
+    "log_file_prefix": "autowatch",
+    "cookies_dir": "D:/autowatch_cookies",
+    "browser_viewport": {
+      "width": 300,
+      "height": 200
+    },
+    "enable_login_check": true,
+    "login_check_selector": "//*[@id=\"i_cecream\"]/div[2]/div[1]/div[1]/ul[2]/li[1]/div[1]/a[1]",
+    "login_timeout": 7200,
+    "inactivity_timeout": 300,
+    "max_login_verifications": 2,
+    "enable_n_value_monitor": true,
+    "stats_page_url": "https://www.bilibili.com/blackboard/era/8knhPvpmJQWIomsc.html",
+    "target_selector": "//*[@id=\"iz2nf6i4M5\"]/div/div/div[1]/div[1]",
+    "check_interval": 300,
+    "max_check_times": 24,
+    "retry_count": 3,
+    "enable_auto_enter_live": true,
+    "live_page_url": "https://live.bilibili.com/p/eden/area-tags?parentAreaId=3&areaId=321",
+    "first_room_selector": "//*[@id=\"room-card-list\"]/div[2]",
+    "enable_reward_claim": true,
+    "check_reward_on_startup": true,
+    "check_reward_on_shutdown": true,
+    "check_reward_on_value_change": true,
+    "enable_claim_prev_stage_reward": true,
+    "prev_stage_check_interval": 600,
+    "reward_check_points": [1, 5, 10, 20, 30, 40],
+    "reward_task_ids": {
+      "1": "18ERA1wloghvwvu00",
+      "5": "18ERA1wloghvwza00",
+      "10": "18ERA1wloghvwf700",
+      "20": "18ERA1wloghvwnf00",
+      "30": "18ERA1wloghvwlu00",
+      "40": "18ERA1wloghvwac00"
+    },
+    "reward_claim_selector": "//*[@id=\"app\"]/div/div[3]/section[2]/div[1]",
+    "reward_claim_timeout": 10000,
+    "reward_base_url": "https://www.bilibili.com/blackboard/era/award-exchange.html",
+    "enable_debug_screenshots": true,
+    "reward_record_file": "reward_claimed.json"
+  },
+  "special_features": {
+    "screen_recording": {
+      "enabled": false,
+      "output_path": "D:\\@Some_Uesless_Program\\B站抢码\\recordings",
+      "fps": 10
+    },
+    "auto_shutdown": {
+      "enabled": true,
+      "delay_minutes": 5
+    }
+  }
+}
