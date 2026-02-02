@@ -17,11 +17,7 @@ class Utils:
         except Exception as e:
             return f"unknown_device_{str(e)[:8]}"
     
-    @staticmethod
-    def get_device_id():
-        """获取设备ID"""
-        system_info = f"{sys.platform}-{os.name}-{os.getlogin()}"
-        return hashlib.md5(system_info.encode()).hexdigest()[:16]
+    
     
     @staticmethod
     def parse_time_input(time_str, default_time="00:29:57"):
@@ -85,6 +81,51 @@ class Utils:
             return os.path.dirname(os.path.abspath(sys.executable))
         else:
             return os.path.dirname(os.path.abspath(__file__))
+    
+    @staticmethod
+    def detect_browsers():
+        """检测系统中安装的浏览器"""
+        detected_browsers = []
+        browser_paths = {}
+        
+        if sys.platform.startswith('win'):
+            # Windows系统检测
+            import winreg
+            
+            # 检测Chrome
+            try:
+                key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe")
+                path = winreg.QueryValue(key, None)
+                winreg.CloseKey(key)
+                if os.path.exists(path):
+                    detected_browsers.append("chrome")
+                    browser_paths["chrome"] = path
+            except Exception:
+                pass
+            
+            # 检测Edge
+            try:
+                key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe")
+                path = winreg.QueryValue(key, None)
+                winreg.CloseKey(key)
+                if os.path.exists(path):
+                    detected_browsers.append("msedge")
+                    browser_paths["msedge"] = path
+            except Exception:
+                pass
+            
+            # 检测Firefox
+            try:
+                key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\firefox.exe")
+                path = winreg.QueryValue(key, None)
+                winreg.CloseKey(key)
+                if os.path.exists(path):
+                    detected_browsers.append("firefox")
+                    browser_paths["firefox"] = path
+            except Exception:
+                pass
+        
+        return detected_browsers, browser_paths
 
 # 全局工具类实例
 utils = Utils()

@@ -118,10 +118,11 @@ class Tasks:
             # 初始化服务端通信
             server = Server(server_url)
             
-            # 获取配置
-            reward_base_url = "https://www.bilibili.com/blackboard/era-award-exchange.html"
-            reward_claim_selector = '//*[@id="app"]/div/div[3]/section[2]/div[1]'
-            max_reload_attempts = 3
+            # 从配置文件获取配置
+            from .config import config_manager
+            reward_base_url = config_manager.server_config.get("reward_base_url", "https://www.bilibili.com/blackboard/era-award-exchange.html")
+            reward_claim_selector = config_manager.server_config.get("reward_claim_selector", '//*[@id="app"]/div/div[3]/section[2]/div[1]')
+            max_reload_attempts = config_manager.server_config.get("context_retry_count", 3)
             
             # 加载任务页面
             task_pages = {}

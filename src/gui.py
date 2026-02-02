@@ -17,7 +17,7 @@ class AutoClickerGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("B站自动点击器（服务端同步版）- by ocean之下")
-        self.root.geometry("1000x800")
+        self.root.geometry("1000x1000")
         self.root.resizable(True, True)
         
         self.custom_fonts = self.set_custom_fonts()
@@ -31,6 +31,9 @@ class AutoClickerGUI:
         
         # 支持的浏览器类型
         self.supported_browsers = ["firefox", "chromium", "webkit", "chrome", "msedge"]
+        
+        # 检测系统中安装的浏览器
+        self.detected_browsers, self.browser_paths = utils.detect_browsers()
         
         # 初始化
         self.log_file_path = logger.log_file_path
@@ -89,10 +92,54 @@ class AutoClickerGUI:
     
     def center_window(self):
         self.root.update_idletasks()
-        width = self.root.winfo_width()
-        height = self.root.winfo_height()
-        x = (self.root.winfo_screenwidth() // 2) - (width // 2)
-        y = (self.root.winfo_screenheight() // 2) - (height // 2)
+        
+        # 获取屏幕大小
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        
+        # 获取当前窗口大小
+        window_width = self.root.winfo_width()
+        window_height = self.root.winfo_height()
+        
+        # 计算最大允许的窗口大小（屏幕的90%）
+        max_width = int(screen_width * 0.9)
+        max_height = int(screen_height * 0.9)
+        
+        # 如果窗口大小超过最大允许大小，调整窗口大小
+        if window_width > max_width or window_height > max_height:
+            # 计算新的窗口大小，保持宽高比
+            width_ratio = window_width / window_height
+            if width_ratio > 1:
+                # 宽度为限制因素
+                new_width = max_width
+                new_height = int(new_width / width_ratio)
+                if new_height > max_height:
+                    new_height = max_height
+                    new_width = int(new_height * width_ratio)
+            else:
+                # 高度为限制因素
+                new_height = max_height
+                new_width = int(new_height * width_ratio)
+                if new_width > max_width:
+                    new_width = max_width
+                    new_height = int(new_width / width_ratio)
+            
+            # 设置新的窗口大小
+            self.root.geometry(f"{new_width}x{new_height}")
+            self.root.update_idletasks()
+            # 更新窗口大小变量
+            window_width = new_width
+            window_height = new_height
+        
+        # 计算居中位置
+        x = (screen_width // 2) - (window_width // 2)
+        y = (screen_height // 2) - (window_height // 2)
+        
+        # 确保窗口位置不会为负数
+        x = max(0, x)
+        y = max(0, y)
+        
+        # 设置窗口位置
         self.root.geometry(f"+{x}+{y}")
     
     def create_widgets(self):
@@ -121,7 +168,13 @@ class AutoClickerGUI:
         
         ctk.CTkLabel(browser_frame, text="浏览器选择:", font=self.custom_fonts["small"]).pack(side="left")
         
-        self.browser_var = ctk.StringVar(value=config_manager.browser_config.get("browser_type", "chromium"))
+        # 确定默认浏览器
+        default_browser = config_manager.browser_config.get("browser_type", "chromium")
+        # 如果配置的浏览器不在检测列表中，但检测到了其他浏览器，使用检测到的第一个浏览器
+        if default_browser not in self.detected_browsers and self.detected_browsers:
+            default_browser = self.detected_browsers[0]
+        
+        self.browser_var = ctk.StringVar(value=default_browser)
         browser_dropdown = ctk.CTkComboBox(
             browser_frame,
             values=self.supported_browsers,
@@ -138,7 +191,13 @@ class AutoClickerGUI:
         
         ctk.CTkLabel(browser_path_frame, text="浏览器路径:", font=self.custom_fonts["small"]).pack(side="left")
         
-        self.browser_path_var = ctk.StringVar(value=config_manager.browser_config.get("browser_executable_path", ""))
+        # 确定默认浏览器路径
+        default_browser_path = config_manager.browser_config.get("browser_executable_path", "")
+        # 如果配置的路径为空，但默认浏览器有检测到的路径，使用检测到的路径
+        if not default_browser_path and default_browser in self.browser_paths:
+            default_browser_path = self.browser_paths[default_browser]
+        
+        self.browser_path_var = ctk.StringVar(value=default_browser_path)
         browser_path_entry = ctk.CTkEntry(
             browser_path_frame,
             textvariable=self.browser_path_var,
@@ -252,23 +311,32 @@ class AutoClickerGUI:
         control_frame = ctk.CTkFrame(right_frame, fg_color="transparent")
         control_frame.pack(fill="x", pady=(10, 0))
         
-        self.start_button = ctk.CTkButton(control_frame, text="开始任务", command=self.start_tasks, font=self.custom_fonts["default"])
+        # 第一行按钮
+        control_row1 = ctk.CTkFrame(control_frame, fg_color="transparent")
+        control_row1.pack(fill="x", pady=(0, 5))
+        
+        self.start_button = ctk.CTkButton(control_row1, text="开始任务", command=self.start_tasks, font=self.custom_fonts["default"])
         self.start_button.pack(side="left", padx=(0, 10))
         
-        self.stop_button = ctk.CTkButton(control_frame, text="停止任务", command=self.stop_tasks, state="disabled", font=self.custom_fonts["default"])
+        self.stop_button = ctk.CTkButton(control_row1, text="停止任务", command=self.stop_tasks, state="disabled", font=self.custom_fonts["default"])
         self.stop_button.pack(side="left", padx=10)
         
-        self.upload_button = ctk.CTkButton(control_frame, text="手动上传结果", command=self.trigger_batch_upload, font=self.custom_fonts["default"])
+        self.upload_button = ctk.CTkButton(control_row1, text="手动上传结果", command=self.trigger_batch_upload, font=self.custom_fonts["default"])
         self.upload_button.pack(side="left", padx=10)
         
         # 上传日志文件按钮
-        upload_log_btn = ctk.CTkButton(control_frame, text="上传日志文件", command=self.trigger_log_upload, font=self.custom_fonts["default"])
+        upload_log_btn = ctk.CTkButton(control_row1, text="上传日志文件", command=self.trigger_log_upload, font=self.custom_fonts["default"])
         upload_log_btn.pack(side="left", padx=10)
         
-        ctk.CTkButton(control_frame, text="保存配置", command=self.save_task_configs, font=self.custom_fonts["default"]).pack(side="left", padx=10)
-        ctk.CTkButton(control_frame, text="特殊功能", command=self.open_special_features, font=self.custom_fonts["default"]).pack(side="left", padx=10)
-        ctk.CTkButton(control_frame, text="清空日志", command=self.clear_log, font=self.custom_fonts["default"]).pack(side="left", padx=10)
-        ctk.CTkButton(control_frame, text="退出", command=self.root.quit, font=self.custom_fonts["default"]).pack(side="left", padx=10)
+        # 第二行按钮
+        control_row2 = ctk.CTkFrame(control_frame, fg_color="transparent")
+        control_row2.pack(fill="x")
+        
+        ctk.CTkButton(control_row2, text="保存配置", command=self.save_task_configs, font=self.custom_fonts["default"]).pack(side="left", padx=(0, 10))
+        ctk.CTkButton(control_row2, text="特殊功能", command=self.open_special_features, font=self.custom_fonts["default"]).pack(side="left", padx=10)
+        ctk.CTkButton(control_row2, text="B站登录", command=self.login_bilibili, font=self.custom_fonts["default"]).pack(side="left", padx=10)
+        ctk.CTkButton(control_row2, text="清空日志", command=self.clear_log, font=self.custom_fonts["default"]).pack(side="left", padx=10)
+        ctk.CTkButton(control_row2, text="退出", command=self.root.quit, font=self.custom_fonts["default"]).pack(side="left", padx=10)
     
     def update_task_list(self):
         for widget in self.scrollable_frame.winfo_children():
@@ -555,6 +623,11 @@ class AutoClickerGUI:
         """改变浏览器类型"""
         browser_type = self.browser_var.get()
         self.log(f"浏览器已切换为: {browser_type}")
+        
+        # 如果检测到该浏览器的路径，自动填充
+        if browser_type in self.browser_paths:
+            self.browser_path_var.set(self.browser_paths[browser_type])
+            self.log(f"自动填充浏览器路径: {self.browser_paths[browser_type]}")
     
     def select_browser_path(self):
         """选择浏览器可执行文件路径"""
@@ -631,7 +704,9 @@ class AutoClickerGUI:
         finally:
             # 清理资源
             self.running = False
-            if config_manager.special_features["auto_shutdown"]["enabled"]:
+            # 检查是否全局禁用关机功能
+            disable_shutdown = config_manager.server_config.get("disable_shutdown", False)
+            if not disable_shutdown and config_manager.special_features["auto_shutdown"]["enabled"]:
                 utils.schedule_shutdown(config_manager.special_features["auto_shutdown"]["delay_minutes"])
             
             # 在主线程中更新GUI状态
@@ -767,3 +842,49 @@ class AutoClickerGUI:
             font=self.custom_fonts["default"],
             width=80
         ).pack(side="right")
+    
+    def login_bilibili(self):
+        """B站登录功能"""
+        self.log("正在启动B站登录...")
+        
+        # 创建Browser实例
+        from .browser import Browser
+        browser = Browser(
+            config_manager.browser_config.get("browser_type", "chromium"),
+            config_manager.browser_config.get("browser_executable_path"),
+            config_manager.get_cookies_dir()
+        )
+        
+        # 在单独的线程中运行登录过程
+        def run_login():
+            try:
+                import asyncio
+                # 创建新的事件循环
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+                # 为Windows设置正确的事件循环策略
+                import sys
+                if sys.platform.startswith('win'):
+                    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+                
+                # 运行登录
+                success, message = loop.run_until_complete(browser.login_bilibili())
+                
+                # 在主线程中更新日志
+                def update_log():
+                    if success:
+                        self.log(f"✅ B站登录成功: {message}")
+                    else:
+                        self.log(f"❌ B站登录失败: {message}")
+                
+                self.root.after(0, update_log)
+                
+            except Exception as e:
+                def update_error_log():
+                    self.log(f"❌ 登录过程中发生错误: {str(e)}")
+                self.root.after(0, update_error_log)
+        
+        # 启动登录线程
+        login_thread = threading.Thread(target=run_login, daemon=True)
+        login_thread.start()

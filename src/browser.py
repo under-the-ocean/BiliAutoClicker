@@ -183,3 +183,56 @@ class Browser:
         """获取设备名称"""
         from .utils import utils
         return utils.get_windows_device_name()
+    
+    async def login_bilibili(self):
+        """B站登录功能"""
+        playwright = await self.setup_browser()
+        context = None
+        page = None
+        
+        try:
+            # 启动浏览器
+            context = await self.launch_browser(playwright)
+            
+            # 打开B站登录页面
+            page = await context.new_page()
+            await page.goto("https://passport.bilibili.com/login", timeout=60000)
+            
+            # 等待页面加载完成
+            await page.wait_for_load_state("networkidle", timeout=60000)
+            
+            # 等待用户登录完成
+            print("请在浏览器中完成B站登录...")
+            print("登录完成后，请关闭浏览器窗口")
+            
+            # 循环检查页面是否仍然存在
+            while True:
+                try:
+                    # 尝试获取页面标题，判断页面是否存在
+                    await page.title()
+                    await asyncio.sleep(2)
+                except Exception:
+                    # 页面不存在（已关闭），退出循环
+                    break
+            
+            return True, "登录完成"
+            
+        except Exception as e:
+            return False, f"登录失败: {str(e)}"
+        finally:
+            # 清理资源
+            if page:
+                try:
+                    await page.close()
+                except Exception:
+                    pass
+            if context:
+                try:
+                    await context.close()
+                except Exception:
+                    pass
+            if playwright:
+                try:
+                    await playwright.stop()
+                except Exception:
+                    pass

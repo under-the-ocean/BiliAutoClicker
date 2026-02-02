@@ -22,7 +22,7 @@ class Server:
         server_api = f"{self.server_url.rstrip('/')}/get_config"
         
         try:
-            headers = {"Device-ID": utils.get_device_id()}
+            headers = {"Device-ID": utils.get_windows_device_name()}
             response = requests.get(server_api, headers=headers, timeout=15)
             response.raise_for_status()
             data = response.json()
@@ -30,7 +30,7 @@ class Server:
             if data.get("status") == "success":
                 server_config = data.get("content", {})
                 server_task_ids = server_config.get("reward_task_ids", {})
-                return True, server_config, server_task_ids
+                return True, server_config, server_task_ids, ""
             else:
                 return False, {}, {}, f"服务端返回错误：{data.get('msg', '未知错误')}"
         except requests.exceptions.RequestException as e:
