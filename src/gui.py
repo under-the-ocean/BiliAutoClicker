@@ -50,19 +50,48 @@ class AutoClickerGUI:
         import os
         from tkinter import font
         
-        # 获取字体文件路径
-        font_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "zh-cn.ttf")
+        # 获取字体文件路径（支持PyInstaller打包）
+        import sys
+        if getattr(sys, 'frozen', False):
+            # 打包环境
+            base_dir = sys._MEIPASS
+        else:
+            # 开发环境
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        font_path = os.path.join(base_dir, "zh-cn.ttf")
         
-        # 尝试使用ctypes加载字体文件（Windows系统）
+        # 检查字体文件是否存在
+        if not os.path.exists(font_path):
+            print(f"字体文件不存在: {font_path}")
+            # 使用系统默认字体
+            font_family = font.nametofont("TkDefaultFont").actual()["family"]
+        else:
+            # 尝试使用ctypes加载字体文件（Windows系统）
+            try:
+                import ctypes
+                # 添加字体资源
+                result = ctypes.windll.gdi32.AddFontResourceW(font_path)
+                if result > 0:
+                    print(f"成功加载字体文件: {font_path}")
+                    # 通知系统字体发生变化
+                    ctypes.windll.user32.SendMessageW(0xFFFF, 0x001D, 0, 0)
+                else:
+                    print(f"加载字体文件失败: 系统返回错误")
+            except Exception as e:
+                print(f"加载字体文件失败: {str(e)}")
+            
+            # 字体名称为 SDK_SC_WEB（zh-cn.ttf 的实际字体名）
+            font_family = "SDK_SC_WEB"
+        
+        # 验证字体是否可用
         try:
-            import ctypes
-            ctypes.windll.gdi32.AddFontResourceW(font_path)
-            print(f"成功加载字体文件: {font_path}")
+            # 尝试创建字体实例
+            test_font = ctk.CTkFont(family=font_family, size=12)
+            print(f"字体 {font_family} 可用")
         except Exception as e:
-            print(f"加载字体文件失败: {str(e)}")
-        
-        # 字体名称为 SDK_SC_WEB（zh-cn.ttf 的实际字体名）
-        font_family = "SDK_SC_WEB"
+            print(f"字体 {font_family} 不可用，使用系统默认字体: {str(e)}")
+            # 使用系统默认字体
+            font_family = font.nametofont("TkDefaultFont").actual()["family"]
         
         # 设置默认字体
         default_font = (font_family, 12)

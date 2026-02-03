@@ -5,7 +5,17 @@ import json
 # 基础配置
 DEFAULT_SERVER_URL = "http://ocean.run.place"
 DEFAULT_COOKIES_DIR = "autowatch_cookies"
-UNIFIED_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "unified_config.json")
+
+# 获取配置文件路径（支持PyInstaller打包）
+def get_config_path():
+    if getattr(sys, 'frozen', False):
+        # 打包环境：配置文件和exe同目录
+        return os.path.join(os.path.dirname(os.path.abspath(sys.executable)), "unified_config.json")
+    else:
+        # 开发环境：配置文件在项目根目录
+        return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "unified_config.json")
+
+UNIFIED_CONFIG_PATH = get_config_path()
 
 class ConfigManager:
     def __init__(self):
