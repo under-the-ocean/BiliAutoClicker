@@ -312,6 +312,238 @@
             </table>
         </div>
 
+        <!-- 3. 特殊功能配置 -->
+        <div class="card">
+            <h2>特殊功能配置</h2>
+            <form method="post" action="/update_special_features">
+                <div class="form-group">
+                    <label for="auto_shutdown_enabled">自动关机</label>
+                    <input type="checkbox" id="auto_shutdown_enabled" name="auto_shutdown_enabled" 
+                           {% if special_features and special_features.auto_shutdown.enabled %}checked{% endif %} 
+                           {% if not is_admin %}disabled{% endif %}>
+                    <span class="hint-text">任务完成后自动关机</span>
+                </div>
+                <div class="form-group">
+                    <label for="auto_shutdown_delay_minutes">关机延迟（分钟）</label>
+                    <input type="number" id="auto_shutdown_delay_minutes" name="auto_shutdown_delay_minutes" 
+                           value="{{ special_features.auto_shutdown.delay_minutes if special_features else 5 }}" 
+                           class="form-control" {% if not is_admin %}readonly{% endif %}>
+                </div>
+                
+                <!-- 按钮区域 -->
+                <div style="margin-top: 15px;">
+                    {% if is_admin %}
+                        <button type="submit" class="btn btn-primary">保存配置</button>
+                    {% else %}
+                        <button type="button" class="btn btn-success" onclick="showSpecialFeaturesApplyForm()">
+                            提交修改申请
+                        </button>
+                    {% endif %}
+                </div>
+            </form>
+
+            <!-- 特殊功能修改申请表单 -->
+            {% if not is_admin %}
+                <div id="specialFeaturesApplyForm" class="apply-form">
+                    <h3>提交特殊功能修改申请</h3>
+                    <form id="specialFeaturesForm" method="post" action="/submit_apply">
+                        <input type="hidden" name="apply_type" value="special_features">
+                        <input type="hidden" name="apply_data" id="special_apply_data">
+                        
+                        <div class="form-group">
+                            <label for="new_auto_shutdown_enabled">自动关机</label>
+                            <input type="checkbox" id="new_auto_shutdown_enabled" 
+                                   {% if special_features and special_features.auto_shutdown.enabled %}checked{% endif %}>
+                        </div>
+                        <div class="form-group">
+                            <label for="new_auto_shutdown_delay_minutes">关机延迟（分钟）</label>
+                            <input type="number" id="new_auto_shutdown_delay_minutes" 
+                                   value="{{ special_features.auto_shutdown.delay_minutes if special_features else 5 }}" 
+                                   class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="special_features_desc">修改理由（必填）</label>
+                            <textarea id="special_features_desc" rows="3" 
+                                      class="form-control" placeholder="请说明修改原因..."></textarea>
+                            <div class="error-text" id="err_special_desc">请填写修改理由</div>
+                        </div>
+                        
+                        <div class="submit-status" id="special_submit_status"></div>
+                        <div>
+                            <button type="submit" class="btn btn-primary">提交申请</button>
+                            <button type="button" class="btn btn-default" onclick="hideSpecialFeaturesApplyForm()">取消</button>
+                        </div>
+                    </form>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- 4. 版本管理 -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2>版本管理</h2>
+                {% if is_admin %}
+                    <button class="btn btn-success" onclick="document.getElementById('addVersionForm').style.display='block'">
+                        添加版本
+                    </button>
+                {% endif %}
+            </div>
+            
+            <!-- 管理员添加版本表单 -->
+            {% if is_admin %}
+                <div id="addVersionForm" style="display: none; margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 6px;">
+                    <h3 style="margin-bottom: 15px;">添加新版本</h3>
+                    <form method="post" action="/add_version">
+                        <div class="form-group">
+                            <label for="version">版本号</label>
+                            <input type="text" id="version" name="version" class="form-control" placeholder="例如：1.0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="description">更新描述</label>
+                            <textarea id="description" name="description" class="form-control" rows="3" placeholder="例如：1. 修复了一些bug\n2. 优化了性能" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="download_url">下载链接</label>
+                            <input type="text" id="download_url" name="download_url" class="form-control" placeholder="例如：https://example.com/download/latest" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="is_latest">设为最新版本</label>
+                            <input type="checkbox" id="is_latest" name="is_latest" checked>
+                        </div>
+                        <div>
+                            <button type="submit" class="btn btn-primary">添加版本</button>
+                            <button type="button" class="btn btn-default" onclick="document.getElementById('addVersionForm').style.display='none'">取消</button>
+                        </div>
+                    </form>
+                </div>
+            {% endif %}
+            
+            <!-- 版本列表 -->
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>版本号</th>
+                        <th>更新描述</th>
+                        <th>下载链接</th>
+                        <th>是否最新</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for version in versions %}
+                    <tr>
+                        <td>{{ version.id }}</td>
+                        <td>{{ version.version }}</td>
+                        <td>{{ version.description[:50] }}{% if version.description|length > 50 %}...{% endif %}</td>
+                        <td>{{ version.download_url[:50] }}{% if version.download_url|length > 50 %}...{% endif %}</td>
+                        <td>{{ '是' if version.is_latest else '否' }}</td>
+                        <td>{{ version.created_at }}</td>
+                        <td>
+                            {% if is_admin %}
+                                <div class="action-buttons">
+                                    <a href="/edit_version/{{ version.id }}" class="btn btn-primary" style="padding: 4px 8px; font-size: 13px;">编辑</a>
+                                    <a href="/delete_version/{{ version.id }}" class="btn btn-danger" style="padding: 4px 8px; font-size: 13px;" onclick="return confirm('确定要删除此版本吗？')">删除</a>
+                                </div>
+                            {% else %}
+                                <span style="color: #666; font-size: 13px;">仅查看</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: #666;">暂无版本数据</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 5. 公告管理 -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2>公告管理</h2>
+                {% if is_admin %}
+                    <button class="btn btn-success" onclick="document.getElementById('addAnnouncementForm').style.display='block'">
+                        添加公告
+                    </button>
+                {% endif %}
+            </div>
+            
+            <!-- 管理员添加公告表单 -->
+            {% if is_admin %}
+                <div id="addAnnouncementForm" style="display: none; margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 6px;">
+                    <h3 style="margin-bottom: 15px;">添加新公告</h3>
+                    <form method="post" action="/add_announcement">
+                        <div class="form-group">
+                            <label for="title">公告标题</label>
+                            <input type="text" id="title" name="title" class="form-control" placeholder="例如：系统维护通知" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="content">公告内容</label>
+                            <textarea id="content" name="content" class="form-control" rows="4" placeholder="例如：尊敬的用户，我们将于2024年12月31日进行系统维护，维护期间可能会暂时无法访问服务。给您带来的不便，敬请谅解！" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="date">公告日期</label>
+                            <input type="date" id="date" name="date" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="is_active">是否激活</label>
+                            <input type="checkbox" id="is_active" name="is_active" checked>
+                        </div>
+                        <div>
+                            <button type="submit" class="btn btn-primary">添加公告</button>
+                            <button type="button" class="btn btn-default" onclick="document.getElementById('addAnnouncementForm').style.display='none'">取消</button>
+                        </div>
+                    </form>
+                </div>
+            {% endif %}
+            
+            <!-- 公告列表 -->
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>标题</th>
+                        <th>内容</th>
+                        <th>日期</th>
+                        <th>是否激活</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for announcement in announcements %}
+                    <tr>
+                        <td>{{ announcement.id }}</td>
+                        <td>{{ announcement.title }}</td>
+                        <td>{{ announcement.content[:50] }}{% if announcement.content|length > 50 %}...{% endif %}</td>
+                        <td>{{ announcement.date }}</td>
+                        <td>{{ '是' if announcement.is_active else '否' }}</td>
+                        <td>{{ announcement.created_at }}</td>
+                        <td>
+                            {% if is_admin %}
+                                <div class="action-buttons">
+                                    <a href="/edit_announcement/{{ announcement.id }}" class="btn btn-primary" style="padding: 4px 8px; font-size: 13px;">编辑</a>
+                                    <a href="/delete_announcement/{{ announcement.id }}" class="btn btn-danger" style="padding: 4px 8px; font-size: 13px;" onclick="return confirm('确定要删除此公告吗？')">删除</a>
+                                </div>
+                            {% else %}
+                                <span style="color: #666; font-size: 13px;">仅查看</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: #666;">暂无公告数据</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+
+
         <!-- 页脚（包含作者信息） -->
         <div class="footer">
             <p>© 2024 配置管理系统</p>
@@ -467,6 +699,46 @@
                 element.parentElement.classList.remove('error');
             }
         }
+        
+        // 特殊功能配置申请表单控制
+        function showSpecialFeaturesApplyForm() {
+            document.getElementById('specialFeaturesApplyForm').style.display = 'block';
+        }
+        
+        function hideSpecialFeaturesApplyForm() {
+            document.getElementById('specialFeaturesApplyForm').style.display = 'none';
+            resetFormErrors('special');
+        }
+        
+        // 特殊功能配置申请提交验证
+        document.getElementById('specialFeaturesForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            resetFormErrors('special');
+            let isValid = true;
+            
+            // 收集表单数据
+            const formData = {
+                auto_shutdown_enabled: document.getElementById('new_auto_shutdown_enabled').checked,
+                auto_shutdown_delay_minutes: document.getElementById('new_auto_shutdown_delay_minutes').value.trim(),
+                desc: document.getElementById('special_features_desc').value.trim()
+            };
+            
+            // 验证数据
+            if (!formData.auto_shutdown_delay_minutes || isNaN(formData.auto_shutdown_delay_minutes)) {
+                isValid = false;
+            }
+            
+            if (!formData.desc) {
+                showError('err_special_desc', true);
+                isValid = false;
+            }
+            
+            // 验证通过，提交表单
+            if (isValid) {
+                document.getElementById('special_apply_data').value = JSON.stringify(formData);
+                this.submit();
+            }
+        });
         
         // 页面加载初始化
         document.addEventListener('DOMContentLoaded', function() {

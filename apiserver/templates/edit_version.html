@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编辑版本 - 管理中心</title>
+    <style>
+        /* 基础样式 */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+        body { background: #f5f7fa; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header h1 { color: #2c3e50; }
+        .nav-link { color: #3498db; text-decoration: none; padding: 8px 12px; border-radius: 4px; }
+        .nav-link:hover { background: #3498db; color: white; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 20px; }
+        .card h2 { color: #2c3e50; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #555; font-weight: 500; }
+        .form-control { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; text-decoration: none; }
+        .btn-primary { background: #3498db; color: white; }
+        .btn-default { background: #f5f5f5; color: #333; }
+        .flash-messages { margin-bottom: 20px; }
+        .flash-success { padding: 10px; background: #dff0d8; color: #3c763d; border-radius: 4px; margin-bottom: 10px; }
+        .flash-error { padding: 10px; background: #f2dede; color: #a94442; border-radius: 4px; margin-bottom: 10px; }
+        .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部导航 -->
+        <div class="header">
+            <h1>管理中心 - 编辑版本</h1>
+            <a href="/manage" class="nav-link">返回管理页</a>
+        </div>
+
+        <!-- 消息提示 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- 编辑版本表单 -->
+        <div class="card">
+            <h2>编辑版本信息</h2>
+            <form method="post">
+                <div class="form-group">
+                    <label for="version">版本号</label>
+                    <input type="text" id="version" name="version" 
+                           value="{{ version.version }}" 
+                           class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">更新描述</label>
+                    <textarea id="description" name="description" 
+                              class="form-control" rows="3" required>{{ version.description }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label for="download_url">下载链接</label>
+                    <input type="text" id="download_url" name="download_url" 
+                           value="{{ version.download_url }}" 
+                           class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="is_latest">设为最新版本</label>
+                    <input type="checkbox" id="is_latest" name="is_latest" 
+                           {% if version.is_latest %}checked{% endif %}>
+                </div>
+                <div style="margin-top: 15px;">
+                    <button type="submit" class="btn btn-primary">保存修改</button>
+                    <a href="/manage" class="btn btn-default" style="margin-left: 10px;">取消</a>
+                </div>
+            </form>
+        </div>
+
+        <!-- 页脚 -->
+        <div class="footer">
+            <p>© 2024 配置管理系统</p>
+        </div>
+    </div>
+</body>
+</html>

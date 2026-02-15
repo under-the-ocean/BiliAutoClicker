@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编辑任务名简化规则 - ocean之下</title>
+    <style>
+        /* 基础样式 */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+        body { background: #f5f7fa; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header h1 { color: #2c3e50; }
+        .nav-links { display: flex; gap: 15px; }
+        .nav-link { color: #3498db; text-decoration: none; padding: 8px 12px; border-radius: 4px; }
+        .nav-link:hover, .nav-link.active { background: #3498db; color: white; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 20px; }
+        .card h2 { color: #2c3e50; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #555; font-weight: 500; }
+        .form-control { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; text-decoration: none; }
+        .btn-primary { background: #3498db; color: white; }
+        .btn-default { background: #f5f5f5; color: #333; }
+        .flash-messages { margin-bottom: 20px; }
+        .flash-success { padding: 10px; background: #dff0d8; color: #3c763d; border-radius: 4px; margin-bottom: 10px; }
+        .flash-error { padding: 10px; background: #f2dede; color: #a94442; border-radius: 4px; margin-bottom: 10px; }
+        .hint-text { color: #666; font-size: 13px; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部导航 -->
+        <div class="header">
+            <h1>编辑任务名简化规则</h1>
+            <div class="nav-links">
+                <a href="/manage" class="nav-link">返回管理中心</a>
+            </div>
+        </div>
+
+        <!-- 消息提示 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- 编辑规则表单 -->
+        <div class="card">
+            <h2>规则信息</h2>
+            <form method="post">
+                <div class="form-group">
+                    <label for="game_full_name">游戏全称</label>
+                    <input type="text" id="game_full_name" name="game_full_name" 
+                           value="{{ rule.game_full_name }}" 
+                           class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="game_short_name">游戏简称</label>
+                    <input type="text" id="game_short_name" name="game_short_name" 
+                           value="{{ rule.game_short_name }}" 
+                           class="form-control" required>
+                    <div class="hint-text">例如：原神 -> 原</div>
+                </div>
+                <div class="form-group">
+                    <label for="task_type">任务类型</label>
+                    <input type="text" id="task_type" name="task_type" 
+                           value="{{ rule.task_type }}" 
+                           class="form-control" required>
+                    <div class="hint-text">例如：直播、看播、投稿</div>
+                </div>
+                <div class="form-group">
+                    <label for="keywords">关键词（逗号分隔）</label>
+                    <input type="text" id="keywords" name="keywords" 
+                           value="{{ rule.keywords }}" 
+                           class="form-control" required>
+                    <div class="hint-text">例如：直播里程碑任务,直播任务,每日直播任务</div>
+                </div>
+                <div class="form-group">
+                    <label for="format_pattern">格式化模板</label>
+                    <input type="text" id="format_pattern" name="format_pattern" 
+                           value="{{ rule.format_pattern }}" 
+                           class="form-control" required>
+                    <div class="hint-text">例如：{game_short}直播{day}，其中{game_short}表示游戏简称，{day}表示天数，{half}表示上下半</div>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <button type="submit" class="btn btn-primary">保存修改</button>
+                    <a href="/manage" class="btn btn-default" style="margin-left: 10px;">取消</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
