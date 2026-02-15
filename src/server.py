@@ -22,7 +22,12 @@ class Server:
         server_api = f"{self.server_url.rstrip('/')}/get_config"
         
         try:
-            headers = {"Device-ID": utils.get_windows_device_name()}
+            # 获取设备名称并确保编码正确
+            device_name = utils.get_windows_device_name()
+            # 对设备名称进行URL编码，避免非ASCII字符导致的编码错误
+            import urllib.parse
+            encoded_device_name = urllib.parse.quote(device_name)
+            headers = {"Device-ID": encoded_device_name}
             response = requests.get(server_api, headers=headers, timeout=15)
             response.raise_for_status()
             data = response.json()
@@ -112,3 +117,49 @@ class Server:
             return True
         except Exception as e:
             return False
+    
+    def check_update(self, current_version):
+        """检查更新"""
+        update_api = f"{self.server_url.rstrip('/')}/check_update"
+        
+        try:
+            # 获取设备名称并确保编码正确
+            device_name = utils.get_windows_device_name()
+            import urllib.parse
+            encoded_device_name = urllib.parse.quote(device_name)
+            headers = {"Device-ID": encoded_device_name, "Current-Version": current_version}
+            response = requests.get(update_api, headers=headers, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            if data.get("status") == "success":
+                return True, data.get("content", {})
+            else:
+                return False, {"message": data.get("message", "检查更新失败")}
+        except requests.exceptions.RequestException as e:
+            return False, {"message": f"网络错误：{str(e)}"}
+        except json.JSONDecodeError:
+            return False, {"message": "服务器返回格式错误"}
+    
+    def get_announcements(self):
+        """获取服务器公告"""
+        announcement_api = f"{self.server_url.rstrip('/')}/get_announcements"
+        
+        try:
+            # 获取设备名称并确保编码正确
+            device_name = utils.get_windows_device_name()
+            import urllib.parse
+            encoded_device_name = urllib.parse.quote(device_name)
+            headers = {"Device-ID": encoded_device_name}
+            response = requests.get(announcement_api, headers=headers, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            if data.get("status") == "success":
+                return True, data.get("content", [])
+            else:
+                return False, {"message": data.get("message", "获取公告失败")}
+        except requests.exceptions.RequestException as e:
+            return False, {"message": f"网络错误：{str(e)}"}
+        except json.JSONDecodeError:
+            return False, {"message": "服务器返回格式错误"}

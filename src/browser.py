@@ -51,44 +51,74 @@ class Browser:
     async def setup_task_page(self, context, base_url, task_id, selector, max_attempts, delay_before_load=0, running_flag=None):
         """设置任务页面"""
         if delay_before_load > 0:
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: 等待 {delay_before_load} 秒后加载页面")
             await asyncio.sleep(delay_before_load)
         page = None
         try:
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: 开始加载页面，最大重试次数: {max_attempts}")
             for attempt in range(1, max_attempts + 1):
                 if running_flag and not running_flag():
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: 加载被用户终止")
                     return None, False
+                
                 if page:
                     await page.close()
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: 关闭之前的页面")
+                
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: 第 {attempt}/{max_attempts} 次尝试加载页面")
                 page = await context.new_page()
                 await page.set_viewport_size({"width": 480, "height": 640})
                 target_url = f"{base_url}?task_id={task_id}"
-                await page.goto(target_url)
-                await page.wait_for_load_state("networkidle", timeout=30000)
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: 访问URL: {target_url}")
+                
                 try:
-                    await page.wait_for_selector(selector, timeout=15000)
-                    activation_result = await page.evaluate('''(selector) => {
-                        const btn = document.evaluate(selector, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                        if (!btn) return {success: false, message: '未找到按钮'};
-                        btn.removeAttribute('disabled');
-                        btn.classList.remove('disabled', 'disable');
-                        btn.classList.add('active');
-                        btn.style.pointerEvents = 'auto';
-                        btn.style.opacity = '1';
-                        btn.textContent = '关注ocean之下';
-                        return {success: true, message: '按钮已激活并修改文本'};
-                    }''', selector)
-                    if activation_result['success']:
-                        return page, True
-                except TimeoutError:
-                    pass
-                except Exception:
-                    pass
+                    await page.goto(target_url)
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: 页面导航成功")
+                    
+                    await page.wait_for_load_state("networkidle", timeout=30000)
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: 页面加载完成")
+                    
+                    try:
+                        print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: 等待选择器出现: {selector}")
+                        await page.wait_for_selector(selector, timeout=15000)
+                        print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: 选择器找到")
+                        
+                        print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: 激活按钮并修改文本")
+                        activation_result = await page.evaluate('''(selector) => {
+                            const btn = document.evaluate(selector, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                            if (!btn) return {success: false, message: '未找到按钮'};
+                            btn.removeAttribute('disabled');
+                            btn.classList.remove('disabled', 'disable');
+                            btn.classList.add('active');
+                            btn.style.pointerEvents = 'auto';
+                            btn.style.opacity = '1';
+                            btn.textContent = '关注ocean之下';
+                            return {success: true, message: '按钮已激活并修改文本'};
+                        }''', selector)
+                        
+                        if activation_result['success']:
+                            print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: ✅ 页面设置成功")
+                            return page, True
+                        else:
+                            print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: ❌ 按钮激活失败: {activation_result['message']}")
+                    except TimeoutError:
+                        print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: ❌ 选择器超时")
+                    except Exception as e:
+                        print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: ❌ 页面操作失败: {str(e)}")
+                except Exception as e:
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: ❌ 页面导航失败: {str(e)}")
+                
                 if attempt < max_attempts and (not running_flag or running_flag()):
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: 等待 2 秒后重试")
                     await asyncio.sleep(2)
+            
             if page:
                 await page.close()
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: 关闭页面")
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: ❌ 所有尝试均失败")
             return None, False
-        except Exception:
+        except Exception as e:
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: ❌ 加载页面时发生错误: {str(e)}")
             if page:
                 await page.close()
             return None, False
@@ -156,27 +186,65 @@ class Browser:
     
     async def wait_for_start_time(self, start_time, running_flag=None):
         """等待开始时间"""
+        last_log_time = 0
         while datetime.now() < start_time and (not running_flag or running_flag()):
             remaining = (start_time - datetime.now()).total_seconds()
-            if int(remaining) % 10 == 0 and remaining > 0:
-                pass  # 这里可以添加日志
+            current_time = time.time()
+            
+            # 每1秒输出一次日志
+            if current_time - last_log_time >= 1 and remaining > 0:
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] 等待开始时间，剩余: {remaining:.2f}秒")
+                last_log_time = current_time
+            
+            # 当剩余时间少于5秒时，每0.5秒输出一次日志
+            elif remaining < 5 and remaining > 0 and current_time - last_log_time >= 0.5:
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] 即将开始，剩余: {remaining:.2f}秒")
+                last_log_time = current_time
+            
             await asyncio.sleep(0.1)
     
     async def perform_task_clicks(self, page, task_id, target_selector, interval, duration, results, running_flag=None):
         """执行任务点击"""
         click_count = 0
         success_count = 0
+        fail_count = 0
         end_time = time.perf_counter() + duration
+        start_time = datetime.now()
+        
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] 开始执行点击任务: {task_id}")
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] 点击参数: 持续时间={duration}s, 间隔={interval}s, 选择器={target_selector}")
+        
+        last_log_time = 0
         while time.perf_counter() < end_time and (not running_flag or running_flag()):
             try:
                 await page.click(target_selector, timeout=50)
                 success_count += 1
-            except Exception:
-                pass
+            except Exception as e:
+                fail_count += 1
+                # 每10次失败输出一次日志
+                if fail_count % 10 == 0:
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: 已失败 {fail_count} 次")
             click_count += 1
+            
+            # 每100次点击输出一次日志
+            if click_count % 100 == 0:
+                elapsed = time.perf_counter() - (end_time - duration)
+                rate = click_count / elapsed if elapsed > 0 else 0
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: 已点击 {click_count} 次，成功 {success_count} 次，速率: {rate:.2f}次/秒")
+            
             if interval > 0 and (not running_flag or running_flag()):
                 await asyncio.sleep(interval)
-        result = f"{duration}秒点击结束，共点击 {click_count} 次，成功 {success_count} 次"
+        
+        # 计算实际执行时间
+        actual_duration = (datetime.now() - start_time).total_seconds()
+        # 计算成功率
+        success_rate = (success_count / click_count * 100) if click_count > 0 else 0
+        # 计算点击速率
+        click_rate = (click_count / actual_duration) if actual_duration > 0 else 0
+        
+        result = f"{actual_duration:.2f}秒点击结束，共点击 {click_count} 次，成功 {success_count} 次，成功率 {success_rate:.1f}%，速率 {click_rate:.2f}次/秒"
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] 任务 {task_id}: {result}")
+        
         results[task_id] = (True, result)
     
     def get_device_name(self):

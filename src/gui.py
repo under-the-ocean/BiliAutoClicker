@@ -1,9 +1,10 @@
 import threading
 import asyncio
+import os
 import customtkinter as ctk
 from tkinter import scrolledtext, messagebox, END, filedialog
 from datetime import datetime
-from .config import config_manager
+from .config import config_manager, APP_VERSION
 from .utils import utils
 from .logger import logger
 from .server import Server
@@ -15,11 +16,13 @@ ctk.set_default_color_theme("blue")
 
 class AutoClickerGUI:
     def __init__(self, root):
+        self.log("开始初始化GUI...")
         self.root = root
         self.root.title("B站自动点击器（服务端同步版）- by ocean之下")
-        self.root.geometry("1000x1000")
+        self.root.geometry("750x425")
         self.root.resizable(True, True)
         
+        self.log("设置自定义字体...")
         self.custom_fonts = self.set_custom_fonts()
         
         # 核心配置变量
@@ -33,91 +36,116 @@ class AutoClickerGUI:
         self.supported_browsers = ["firefox", "chromium", "webkit", "chrome", "msedge"]
         
         # 检测系统中安装的浏览器
+        self.log("检测系统中安装的浏览器...")
         self.detected_browsers, self.browser_paths = utils.detect_browsers()
+        self.log(f"检测到的浏览器: {self.detected_browsers}")
         
         # 初始化
         self.log_file_path = logger.log_file_path
+        self.current_version = APP_VERSION  # 当前版本号
+        
+        self.log("创建GUI组件...")
         self.create_widgets()
-        self.fetch_server_config()
-        self.update_config_display()
+        self.log("GUI组件创建完成")
         
         # 初始化服务端
+        self.log("初始化服务端...")
         self.server = Server(config_manager.client_config['server_url'])
+        self.log("服务端初始化完成")
         
+        self.log("从服务端拉取配置...")
+        self.fetch_server_config()
+        
+        self.log("更新配置显示...")
+        self.update_config_display()
+        
+        # 检查更新和获取公告
+        self.log("检查更新...")
+        self.check_for_updates()
+        
+        self.log("获取服务器公告...")
+        self.fetch_announcements()
+        
+        self.log("居中窗口...")
         self.center_window()
+        self.log("GUI初始化完成")
     
     def set_custom_fonts(self):
         import os
         from tkinter import font
         
-        # 获取字体文件路径（支持PyInstaller打包）
-        import sys
-        if getattr(sys, 'frozen', False):
-            # 打包环境
-            base_dir = sys._MEIPASS
-        else:
-            # 开发环境
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        font_path = os.path.join(base_dir, "zh-cn.ttf")
-        
-        # 检查字体文件是否存在
-        if not os.path.exists(font_path):
-            print(f"字体文件不存在: {font_path}")
-            # 使用系统默认字体
-            font_family = font.nametofont("TkDefaultFont").actual()["family"]
-        else:
-            # 尝试使用ctypes加载字体文件（Windows系统）
-            try:
-                import ctypes
-                # 添加字体资源
-                result = ctypes.windll.gdi32.AddFontResourceW(font_path)
-                if result > 0:
-                    print(f"成功加载字体文件: {font_path}")
-                    # 通知系统字体发生变化
-                    ctypes.windll.user32.SendMessageW(0xFFFF, 0x001D, 0, 0)
-                else:
-                    print(f"加载字体文件失败: 系统返回错误")
-            except Exception as e:
-                print(f"加载字体文件失败: {str(e)}")
-            
-            # 字体名称为 SDK_SC_WEB（zh-cn.ttf 的实际字体名）
-            font_family = "SDK_SC_WEB"
-        
-        # 验证字体是否可用
         try:
-            # 尝试创建字体实例
-            test_font = ctk.CTkFont(family=font_family, size=12)
-            print(f"字体 {font_family} 可用")
+            # 获取字体文件路径（支持PyInstaller打包）
+            import sys
+            if getattr(sys, 'frozen', False):
+                # 打包环境
+                base_dir = sys._MEIPASS
+            else:
+                # 开发环境
+                base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            font_path = os.path.join(base_dir, "zh-cn.ttf")
+            
+            # 检查字体文件是否存在
+            if not os.path.exists(font_path):
+                self.log(f"字体文件不存在: {font_path}")
+                # 使用系统默认字体
+                font_family = font.nametofont("TkDefaultFont").actual()["family"]
+            else:
+                # 尝试使用ctypes加载字体文件（Windows系统）
+                try:
+                    import ctypes
+                    # 添加字体资源
+                    result = ctypes.windll.gdi32.AddFontResourceW(font_path)
+                    if result > 0:
+                        self.log(f"成功加载字体文件: {font_path}")
+                        # 通知系统字体发生变化
+                        ctypes.windll.user32.SendMessageW(0xFFFF, 0x001D, 0, 0)
+                    else:
+                        self.log(f"加载字体文件失败: 系统返回错误")
+                except Exception as e:
+                    self.log(f"加载字体文件失败: {str(e)}")
+                
+                # 字体名称为 SDK_SC_WEB（zh-cn.ttf 的实际字体名）
+                font_family = "SDK_SC_WEB"
+            
+            # 验证字体是否可用
+            try:
+                # 尝试创建字体实例
+                test_font = ctk.CTkFont(family=font_family, size=12)
+                self.log(f"字体 {font_family} 可用")
+            except Exception as e:
+                self.log(f"字体 {font_family} 不可用，使用系统默认字体: {str(e)}")
+                # 使用系统默认字体
+                font_family = font.nametofont("TkDefaultFont").actual()["family"]
+            
+            # 设置默认字体
+            default_font = (font_family, 12)
+            ctk.CTkFont.default_font = default_font
+            ctk.set_widget_scaling(1.1)
+            
+            # 返回字体配置
+            return {
+                "default": ctk.CTkFont(family=font_family, size=12),
+                "small": ctk.CTkFont(family=font_family, size=10),
+                "medium": ctk.CTkFont(family=font_family, size=14),
+                "large": ctk.CTkFont(family=font_family, size=16, weight="bold"),
+                "monospace": ctk.CTkFont(family=font_family, size=11)
+            }
         except Exception as e:
-            print(f"字体 {font_family} 不可用，使用系统默认字体: {str(e)}")
+            self.log(f"字体设置失败: {str(e)}")
             # 使用系统默认字体
             font_family = font.nametofont("TkDefaultFont").actual()["family"]
-        
-        # 设置默认字体
-        default_font = (font_family, 12)
-        ctk.CTkFont.default_font = default_font
-        ctk.set_widget_scaling(1.1)
-        
-        # 返回字体配置
-        return {
-            "default": ctk.CTkFont(family=font_family, size=12),
-            "small": ctk.CTkFont(family=font_family, size=10),
-            "medium": ctk.CTkFont(family=font_family, size=14),
-            "large": ctk.CTkFont(family=font_family, size=16, weight="bold"),
-            "monospace": ctk.CTkFont(family=font_family, size=11)
-        }
+            return {
+                "default": ctk.CTkFont(family=font_family, size=12),
+                "small": ctk.CTkFont(family=font_family, size=10),
+                "medium": ctk.CTkFont(family=font_family, size=14),
+                "large": ctk.CTkFont(family=font_family, size=16, weight="bold"),
+                "monospace": ctk.CTkFont(family=font_family, size=11)
+            }
     
     def log(self, message):
         timestamp = datetime.now().strftime("%H:%M:%S")
-        def update_log():
-            self.log_text.insert("end", f"[{timestamp}] {message}\n")
-            self.log_text.see("end")
-            self.root.update_idletasks()
-        
-        if threading.current_thread() == threading.main_thread():
-            update_log()
-        else:
-            self.root.after(0, update_log)
+        print(f"[{timestamp}] {message}")
     
     def center_window(self):
         self.root.update_idletasks()
@@ -173,29 +201,73 @@ class AutoClickerGUI:
     
     def create_widgets(self):
         main_frame = ctk.CTkFrame(self.root)
-        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)  # 减少外边距
         
         title_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        title_frame.pack(fill="x", pady=(0, 20))
+        title_frame.pack(fill="x", pady=(0, 10))  # 减少下边距
         
-        title_label = ctk.CTkLabel(title_frame, text="B站自动点击器（服务端同步版）", font=self.custom_fonts["large"])
-        title_label.pack(anchor="w")
+        # 标题和操作区
+        title_row = ctk.CTkFrame(title_frame, fg_color="transparent")
+        title_row.pack(fill="x")
         
-        device_label = ctk.CTkLabel(title_frame, 
-                                  text=f"当前设备：{utils.get_windows_device_name()} | 上传地址：{self.server.upload_endpoint if hasattr(self, 'server') else '初始化中'}",
+        title_label = ctk.CTkLabel(title_row, text="B站自动点击器（服务端同步版）", font=self.custom_fonts["medium"])
+        title_label.pack(side="left", anchor="w")
+        
+        # 添加菜单按钮
+        menu_frame = ctk.CTkFrame(title_row, fg_color="transparent")
+        menu_frame.pack(side="right", anchor="e")
+        
+        # 创建下拉菜单
+        self.menu_var = ctk.StringVar(value="功能菜单")
+        self.menu = ctk.CTkOptionMenu(
+            menu_frame,
+            values=["保存配置", "特殊功能", "B站登录", "手动上传结果", "上传日志文件", "退出"],
+            variable=self.menu_var,
+            command=self.handle_menu_selection,
+            font=self.custom_fonts["small"]
+        )
+        self.menu.pack(side="right", padx=(0, 10))
+        
+        # 添加独立的TaskID按钮
+        taskid_btn = ctk.CTkButton(
+            menu_frame,
+            text="TaskID管理",
+            command=self.open_taskid_window,
+            font=self.custom_fonts["small"]
+        )
+        taskid_btn.pack(side="right")
+        
+        # TaskID窗口实例
+        self.taskid_window = None
+        
+        # 信息显示区 - 使用网格布局更紧凑
+        info_frame = ctk.CTkFrame(title_frame, fg_color="transparent")
+        info_frame.pack(fill="x", pady=(5, 0))
+        
+        # 设备信息和服务端信息
+        device_server_frame = ctk.CTkFrame(info_frame, fg_color="transparent")
+        device_server_frame.pack(fill="x")
+        
+        device_label = ctk.CTkLabel(device_server_frame, 
+                                  text=f"设备：{utils.get_windows_device_name()}",
                                   font=self.custom_fonts["small"])
-        device_label.pack(anchor="w", pady=(5, 0))
+        device_label.pack(side="left", padx=(0, 15))
         
-        server_label = ctk.CTkLabel(title_frame, 
-                                  text=f"当前服务端：{config_manager.client_config['server_url']} | Cookie路径：{config_manager.get_cookies_dir()}",
+        server_label = ctk.CTkLabel(device_server_frame, 
+                                  text=f"服务端：{config_manager.client_config['server_url']}",
                                   font=self.custom_fonts["small"])
-        server_label.pack(anchor="w", pady=(5, 0))
+        server_label.pack(side="left", padx=(0, 15))
+        
+        cookie_label = ctk.CTkLabel(device_server_frame, 
+                                  text=f"Cookie路径：{os.path.basename(config_manager.get_cookies_dir())}",
+                                  font=self.custom_fonts["small"])
+        cookie_label.pack(side="left")
         
         # 浏览器选择控件
         browser_frame = ctk.CTkFrame(title_frame, fg_color="transparent")
-        browser_frame.pack(anchor="w", pady=(5, 0))
+        browser_frame.pack(fill="x", pady=(5, 0))
         
-        ctk.CTkLabel(browser_frame, text="浏览器选择:", font=self.custom_fonts["small"]).pack(side="left")
+        ctk.CTkLabel(browser_frame, text="浏览器:", font=self.custom_fonts["small"]).pack(side="left", padx=(0, 5))
         
         # 确定默认浏览器
         default_browser = config_manager.browser_config.get("browser_type", "chromium")
@@ -208,17 +280,14 @@ class AutoClickerGUI:
             browser_frame,
             values=self.supported_browsers,
             variable=self.browser_var,
-            width=100,
+            width=90,
             font=self.custom_fonts["small"],
             command=self.change_browser
         )
-        browser_dropdown.pack(side="left", padx=(5, 0))
+        browser_dropdown.pack(side="left", padx=(0, 15))
         
         # 浏览器路径选择控件
-        browser_path_frame = ctk.CTkFrame(title_frame, fg_color="transparent")
-        browser_path_frame.pack(anchor="w", pady=(5, 0))
-        
-        ctk.CTkLabel(browser_path_frame, text="浏览器路径:", font=self.custom_fonts["small"]).pack(side="left")
+        ctk.CTkLabel(browser_frame, text="路径:", font=self.custom_fonts["small"]).pack(side="left", padx=(0, 5))
         
         # 确定默认浏览器路径
         default_browser_path = config_manager.browser_config.get("browser_executable_path", "")
@@ -228,167 +297,85 @@ class AutoClickerGUI:
         
         self.browser_path_var = ctk.StringVar(value=default_browser_path)
         browser_path_entry = ctk.CTkEntry(
-            browser_path_frame,
+            browser_frame,
             textvariable=self.browser_path_var,
-            width=300,
+            width=250,
             font=self.custom_fonts["small"]
         )
-        browser_path_entry.pack(side="left", padx=(5, 5))
+        browser_path_entry.pack(side="left", padx=(0, 5))
         
         select_path_btn = ctk.CTkButton(
-            browser_path_frame,
+            browser_frame,
             text="浏览",
             command=self.select_browser_path,
-            width=60,
+            width=50,
             font=self.custom_fonts["small"]
         )
         select_path_btn.pack(side="left", padx=(0, 5))
         
         save_path_btn = ctk.CTkButton(
-            browser_path_frame,
+            browser_frame,
             text="保存",
             command=self.save_browser_config,
-            width=60,
+            width=50,
             font=self.custom_fonts["small"]
         )
         save_path_btn.pack(side="left")
         
         # 日志文件信息显示
-        log_info_label = ctk.CTkLabel(title_frame, 
-                                    text=f"API日志文件：{logger.get_log_file_path()}",
-                                    font=self.custom_fonts["small"])
-        log_info_label.pack(anchor="w", pady=(5, 0))
+        log_author_frame = ctk.CTkFrame(title_frame, fg_color="transparent")
+        log_author_frame.pack(fill="x", pady=(5, 0))
         
-        author_label = ctk.CTkLabel(title_frame, 
-                                  text="作者: ocean之下 | 主页: https://space.bilibili.com/3546571704634103",
+        log_info_label = ctk.CTkLabel(log_author_frame, 
+                                    text=f"日志文件：{os.path.basename(logger.get_log_file_path())}",
+                                    font=self.custom_fonts["small"])
+        log_info_label.pack(side="left", anchor="w")
+        
+        author_label = ctk.CTkLabel(log_author_frame, 
+                                  text="作者: ocean之下",
                                   font=self.custom_fonts["small"])
-        author_label.pack(anchor="w", pady=(5, 0))
+        author_label.pack(side="right", anchor="e")
         
         paned_window = ctk.CTkFrame(main_frame)
         paned_window.pack(fill="both", expand=True)
         
-        left_frame = ctk.CTkFrame(paned_window, width=350)
-        left_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
-        
-        task_frame = ctk.CTkFrame(left_frame, corner_radius=8)
-        task_frame.pack(fill="both", expand=True, pady=(0, 10))
-        
-        ctk.CTkLabel(task_frame, text="服务端TaskID列表（自动同步）", font=self.custom_fonts["medium"]).pack(anchor="w", pady=(10, 5), padx=10)
-        
-        refresh_btn = ctk.CTkButton(task_frame, text="刷新服务端TaskID", command=self.refresh_server_config, font=self.custom_fonts["small"])
-        refresh_btn.pack(anchor="w", padx=10, pady=(0, 5))
-        
-        listbox_container = ctk.CTkFrame(task_frame)
-        listbox_container.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-        
-        self.scrollable_frame = ctk.CTkScrollableFrame(listbox_container)
-        self.scrollable_frame.pack(fill="both", expand=True)
-        
-        self.task_checkboxes = {}
-        self.task_vars = {}
-        self.update_task_list()
-        
-        add_selected_btn = ctk.CTkButton(task_frame, text="添加选中TaskID", command=self.add_selected_tasks, font=self.custom_fonts["default"])
-        add_selected_btn.pack(fill="x", padx=10, pady=(0, 15))
-        
-        ctk.CTkLabel(task_frame, text="手动输入TaskID（补充）", font=self.custom_fonts["default"]).pack(anchor="w", padx=10, pady=(0, 5))
-        
-        input_frame = ctk.CTkFrame(task_frame, fg_color="transparent")
-        input_frame.pack(fill="x", padx=10, pady=(0, 10))
-        
-        self.manual_task_var = ctk.StringVar()
-        task_entry = ctk.CTkEntry(input_frame, textvariable=self.manual_task_var, placeholder_text="输入额外TaskID", font=self.custom_fonts["default"])
-        task_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        
-        add_manual_btn = ctk.CTkButton(input_frame, text="添加", command=self.add_manual_task, width=60, font=self.custom_fonts["default"])
-        add_manual_btn.pack(side="right")
-        
+        # 只保留右侧的任务配置区域
         right_frame = ctk.CTkFrame(paned_window)
-        right_frame.pack(side="right", fill="both", expand=True)
+        right_frame.pack(fill="both", expand=True)
         
         config_frame = ctk.CTkFrame(right_frame, corner_radius=8)
-        config_frame.pack(fill="both", pady=(0, 10))
+        config_frame.pack(fill="both", pady=(0, 8))
         
-        ctk.CTkLabel(config_frame, text="任务配置", font=self.custom_fonts["medium"]).pack(anchor="w", pady=(10, 5), padx=10)
+        ctk.CTkLabel(config_frame, text="任务配置", font=self.custom_fonts["small"]).pack(anchor="w", pady=(8, 3), padx=8)
         
         table_container = ctk.CTkFrame(config_frame)
-        table_container.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        table_container.pack(fill="both", expand=True, padx=8, pady=(0, 8))
         
-        self.config_text = ctk.CTkTextbox(table_container, height=120, font=self.custom_fonts["monospace"])
+        self.config_text = ctk.CTkTextbox(table_container, height=100, font=self.custom_fonts["monospace"])
         self.config_text.pack(fill="both", expand=True)
         self.config_text.configure(state="disabled")
         
         button_frame = ctk.CTkFrame(config_frame, fg_color="transparent")
-        button_frame.pack(fill="x", padx=10, pady=(0, 10))
+        button_frame.pack(fill="x", padx=8, pady=(0, 8))
         
-        ctk.CTkButton(button_frame, text="编辑选中", command=self.edit_selected_task, width=80, font=self.custom_fonts["default"]).pack(side="left", padx=(0, 5))
-        ctk.CTkButton(button_frame, text="删除选中", command=self.remove_selected_task, width=80, font=self.custom_fonts["default"]).pack(side="left", padx=5)
-        ctk.CTkButton(button_frame, text="应用默认值", command=self.apply_defaults, width=90, font=self.custom_fonts["default"]).pack(side="left", padx=5)
-        ctk.CTkButton(button_frame, text="清空所有", command=self.clear_all_tasks, width=80, font=self.custom_fonts["default"]).pack(side="left", padx=5)
+        ctk.CTkButton(button_frame, text="编辑", command=self.edit_selected_task, width=60, font=self.custom_fonts["small"]).pack(side="left", padx=(0, 4))
+        ctk.CTkButton(button_frame, text="删除", command=self.remove_selected_task, width=60, font=self.custom_fonts["small"]).pack(side="left", padx=4)
+        ctk.CTkButton(button_frame, text="默认值", command=self.apply_defaults, width=60, font=self.custom_fonts["small"]).pack(side="left", padx=4)
+        ctk.CTkButton(button_frame, text="清空", command=self.clear_all_tasks, width=60, font=self.custom_fonts["small"]).pack(side="left", padx=4)
         
-        log_frame = ctk.CTkFrame(right_frame, corner_radius=8)
-        log_frame.pack(fill="both", expand=True)
-        
-        ctk.CTkLabel(log_frame, text="操作日志", font=self.custom_fonts["medium"]).pack(anchor="w", pady=(10, 5), padx=10)
-        
-        self.log_text = scrolledtext.ScrolledText(log_frame, width=60, height=15,
-                                                font=self.custom_fonts["monospace"],
-                                                bg="#2b2b2b", fg="#ffffff",
-                                                relief="flat", border=1)
-        self.log_text.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-        
+        # 任务控制按钮
         control_frame = ctk.CTkFrame(right_frame, fg_color="transparent")
-        control_frame.pack(fill="x", pady=(10, 0))
+        control_frame.pack(fill="x", pady=(8, 0))
         
-        # 第一行按钮
-        control_row1 = ctk.CTkFrame(control_frame, fg_color="transparent")
-        control_row1.pack(fill="x", pady=(0, 5))
+        self.start_button = ctk.CTkButton(control_frame, text="开始任务", command=self.start_tasks, font=self.custom_fonts["small"])
+        self.start_button.pack(side="left", padx=(0, 8))
         
-        self.start_button = ctk.CTkButton(control_row1, text="开始任务", command=self.start_tasks, font=self.custom_fonts["default"])
-        self.start_button.pack(side="left", padx=(0, 10))
-        
-        self.stop_button = ctk.CTkButton(control_row1, text="停止任务", command=self.stop_tasks, state="disabled", font=self.custom_fonts["default"])
-        self.stop_button.pack(side="left", padx=10)
-        
-        self.upload_button = ctk.CTkButton(control_row1, text="手动上传结果", command=self.trigger_batch_upload, font=self.custom_fonts["default"])
-        self.upload_button.pack(side="left", padx=10)
-        
-        # 上传日志文件按钮
-        upload_log_btn = ctk.CTkButton(control_row1, text="上传日志文件", command=self.trigger_log_upload, font=self.custom_fonts["default"])
-        upload_log_btn.pack(side="left", padx=10)
-        
-        # 第二行按钮
-        control_row2 = ctk.CTkFrame(control_frame, fg_color="transparent")
-        control_row2.pack(fill="x")
-        
-        ctk.CTkButton(control_row2, text="保存配置", command=self.save_task_configs, font=self.custom_fonts["default"]).pack(side="left", padx=(0, 10))
-        ctk.CTkButton(control_row2, text="特殊功能", command=self.open_special_features, font=self.custom_fonts["default"]).pack(side="left", padx=10)
-        ctk.CTkButton(control_row2, text="B站登录", command=self.login_bilibili, font=self.custom_fonts["default"]).pack(side="left", padx=10)
-        ctk.CTkButton(control_row2, text="清空日志", command=self.clear_log, font=self.custom_fonts["default"]).pack(side="left", padx=10)
-        ctk.CTkButton(control_row2, text="退出", command=self.root.quit, font=self.custom_fonts["default"]).pack(side="left", padx=10)
+        self.stop_button = ctk.CTkButton(control_frame, text="停止任务", command=self.stop_tasks, state="disabled", font=self.custom_fonts["small"])
+        self.stop_button.pack(side="left", padx=8)
     
     def update_task_list(self):
-        for widget in self.scrollable_frame.winfo_children():
-            widget.destroy()
-        self.task_checkboxes.clear()
-        self.task_vars.clear()
-        
-        if self.server_task_ids:
-            for task_key, task_value in self.server_task_ids.items():
-                var = ctk.BooleanVar()
-                checkbox = ctk.CTkCheckBox(
-                    self.scrollable_frame,
-                    text=f"{task_key}. {task_value}",
-                    variable=var,
-                    font=self.custom_fonts["default"],
-                    command=lambda k=task_key, v=var: self.on_checkbox_change(k, v)
-                )
-                checkbox.pack(anchor="w", pady=2, padx=5)
-                self.task_checkboxes[task_key] = checkbox
-                self.task_vars[task_key] = var
-        else:
-            tip_label = ctk.CTkLabel(self.scrollable_frame, text="暂无服务端TaskID数据", font=self.custom_fonts["small"], text_color="#666")
-            tip_label.pack(anchor="w", pady=5, padx=5)
+        """更新TaskID列表，现在更新的是TaskID窗口中的列表"""
+        self.update_taskid_window_list()
     
     def on_checkbox_change(self, task_key, var):
         task_value = self.server_task_ids.get(task_key, "")
@@ -400,8 +387,7 @@ class AutoClickerGUI:
     
     def fetch_server_config(self):
         self.log("正在从服务端拉取配置...")
-        server = Server(config_manager.client_config['server_url'])
-        success, server_config, server_task_ids, error_message = server.fetch_server_config()
+        success, server_config, server_task_ids, error_message = self.server.fetch_server_config()
         
         if success:
             self.server_task_ids = server_task_ids
@@ -645,8 +631,124 @@ class AutoClickerGUI:
                     var.set(False)
     
     def clear_log(self):
-        self.log_text.delete("1.0", "end")
-        self.log("日志已清空")
+        pass  # 由于移除了日志窗口，此方法不再需要
+    
+    def handle_menu_selection(self, selection):
+        """处理菜单选择事件"""
+        if selection == "保存配置":
+            self.save_task_configs()
+        elif selection == "特殊功能":
+            self.open_special_features()
+        elif selection == "B站登录":
+            self.login_bilibili()
+        elif selection == "手动上传结果":
+            self.trigger_batch_upload()
+        elif selection == "上传日志文件":
+            self.trigger_log_upload()
+        elif selection == "退出":
+            self.root.quit()
+    
+    def check_for_updates(self):
+        """检查更新"""
+        self.log("正在检查更新...")
+        success, update_info = self.server.check_update(self.current_version)
+        
+        if success:
+            if update_info.get("has_update"):
+                self.log(f"发现新版本：{update_info.get('version')}")
+                self.log(f"更新内容：{update_info.get('description')}")
+                self.log(f"下载链接：{update_info.get('download_url')}")
+                # 显示更新提示对话框
+                self.show_update_dialog(update_info)
+            else:
+                self.log("当前已是最新版本")
+        else:
+            self.log(f"检查更新失败：{update_info.get('message', '未知错误')}")
+    
+    def fetch_announcements(self):
+        """获取服务器公告"""
+        self.log("正在获取服务器公告...")
+        success, announcements = self.server.get_announcements()
+        
+        if success:
+            if announcements:
+                self.log(f"获取到 {len(announcements)} 条公告")
+                # 显示公告对话框
+                self.show_announcements_dialog(announcements)
+            else:
+                self.log("暂无公告")
+        else:
+            self.log(f"获取公告失败：{announcements.get('message', '未知错误')}")
+    
+    def show_update_dialog(self, update_info):
+        """显示更新提示对话框"""
+        dialog = ctk.CTkToplevel(self.root)
+        dialog.title("发现新版本")
+        dialog.geometry("500x300")
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        dialog.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() - dialog.winfo_width()) // 2
+        y = self.root.winfo_y() + (self.root.winfo_height() - dialog.winfo_height()) // 2
+        dialog.geometry(f"+{x}+{y}")
+        
+        main_frame = ctk.CTkFrame(dialog)
+        main_frame.pack(fill="both", expand=True, padx=15, pady=15)
+        
+        ctk.CTkLabel(main_frame, text="发现新版本", font=self.custom_fonts["large"]).pack(anchor="w", pady=(0, 15))
+        
+        ctk.CTkLabel(main_frame, text=f"当前版本：{self.current_version}", font=self.custom_fonts["default"]).pack(anchor="w", pady=(5, 0))
+        ctk.CTkLabel(main_frame, text=f"最新版本：{update_info.get('version')}", font=self.custom_fonts["default"]).pack(anchor="w", pady=(5, 0))
+        
+        ctk.CTkLabel(main_frame, text="更新内容：", font=self.custom_fonts["default"]).pack(anchor="w", pady=(10, 5))
+        update_text = ctk.CTkTextbox(main_frame, height=100, font=self.custom_fonts["small"])
+        update_text.pack(fill="x", pady=(0, 10))
+        update_text.insert("1.0", update_info.get('description', ''))
+        update_text.configure(state="disabled")
+        
+        button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        button_frame.pack(fill="x", pady=(10, 0))
+        
+        ctk.CTkButton(button_frame, text="稍后再说", command=dialog.destroy, width=80, font=self.custom_fonts["default"]).pack(side="right", padx=(0, 8))
+        ctk.CTkButton(button_frame, text="立即下载", command=lambda: self.open_download_link(update_info.get('download_url')), width=80, font=self.custom_fonts["default"]).pack(side="right")
+    
+    def show_announcements_dialog(self, announcements):
+        """显示公告对话框"""
+        dialog = ctk.CTkToplevel(self.root)
+        dialog.title("服务器公告")
+        dialog.geometry("500x400")
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        dialog.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() - dialog.winfo_width()) // 2
+        y = self.root.winfo_y() + (self.root.winfo_height() - dialog.winfo_height()) // 2
+        dialog.geometry(f"+{x}+{y}")
+        
+        main_frame = ctk.CTkFrame(dialog)
+        main_frame.pack(fill="both", expand=True, padx=15, pady=15)
+        
+        ctk.CTkLabel(main_frame, text="服务器公告", font=self.custom_fonts["large"]).pack(anchor="w", pady=(0, 15))
+        
+        announcements_text = ctk.CTkTextbox(main_frame, height=250, font=self.custom_fonts["small"])
+        announcements_text.pack(fill="both", expand=True, pady=(0, 10))
+        
+        for announcement in announcements:
+            title = announcement.get('title', '无标题')
+            content = announcement.get('content', '无内容')
+            date = announcement.get('date', '未知日期')
+            announcements_text.insert("end", f"【{title}】({date})\n")
+            announcements_text.insert("end", f"{content}\n\n")
+        
+        announcements_text.configure(state="disabled")
+        
+        ctk.CTkButton(main_frame, text="关闭", command=dialog.destroy, width=80, font=self.custom_fonts["default"]).pack(side="right")
+    
+    def open_download_link(self, url):
+        """打开下载链接"""
+        import webbrowser
+        webbrowser.open(url)
     
     def change_browser(self, event=None):
         """改变浏览器类型"""
@@ -917,3 +1019,99 @@ class AutoClickerGUI:
         # 启动登录线程
         login_thread = threading.Thread(target=run_login, daemon=True)
         login_thread.start()
+    
+    def open_taskid_window(self):
+        """打开服务端TaskID窗口"""
+        # 如果窗口已存在，先关闭
+        if self.taskid_window and self.taskid_window.winfo_exists():
+            self.taskid_window.destroy()
+        
+        # 创建新窗口
+        self.taskid_window = ctk.CTkToplevel(self.root)
+        self.taskid_window.title("服务端TaskID管理")
+        self.taskid_window.geometry("400x500")
+        self.taskid_window.resizable(True, True)
+        self.taskid_window.transient(self.root)
+        
+        # 设置窗口位置
+        self.taskid_window.update_idletasks()
+        x = self.root.winfo_x() + 50
+        y = self.root.winfo_y() + 50
+        self.taskid_window.geometry(f"+{x}+{y}")
+        
+        # 创建窗口内容
+        main_frame = ctk.CTkFrame(self.taskid_window)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # 标题
+        ctk.CTkLabel(main_frame, text="服务端TaskID列表", font=self.custom_fonts["medium"]).pack(anchor="w", pady=(5, 10))
+        
+        # 刷新按钮
+        refresh_btn = ctk.CTkButton(main_frame, text="刷新服务端TaskID", command=self.refresh_server_config, font=self.custom_fonts["small"])
+        refresh_btn.pack(anchor="w", pady=(0, 10))
+        
+        # TaskID列表区域
+        list_frame = ctk.CTkFrame(main_frame)
+        list_frame.pack(fill="both", expand=True, pady=(0, 10))
+        
+        # 创建可滚动框架
+        self.taskid_scrollable_frame = ctk.CTkScrollableFrame(list_frame)
+        self.taskid_scrollable_frame.pack(fill="both", expand=True)
+        
+        # 显示TaskID列表
+        self.update_taskid_window_list()
+        
+        # 添加选中按钮
+        add_selected_btn = ctk.CTkButton(main_frame, text="添加选中TaskID", command=self.add_selected_tasks, font=self.custom_fonts["default"])
+        add_selected_btn.pack(fill="x", pady=(0, 10))
+        
+        # 手动输入TaskID
+        ctk.CTkLabel(main_frame, text="手动输入TaskID", font=self.custom_fonts["default"]).pack(anchor="w", pady=(0, 5))
+        
+        input_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        input_frame.pack(fill="x", pady=(0, 10))
+        
+        self.manual_task_var = ctk.StringVar()
+        task_entry = ctk.CTkEntry(input_frame, textvariable=self.manual_task_var, placeholder_text="输入TaskID", font=self.custom_fonts["default"])
+        task_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        
+        add_manual_btn = ctk.CTkButton(input_frame, text="添加", command=self.add_manual_task, width=60, font=self.custom_fonts["default"])
+        add_manual_btn.pack(side="right")
+    
+    def update_taskid_window_list(self):
+        """更新TaskID窗口中的列表"""
+        if not hasattr(self, 'taskid_scrollable_frame'):
+            return
+        
+        # 清空现有内容
+        for widget in self.taskid_scrollable_frame.winfo_children():
+            widget.destroy()
+        
+        # 重新创建复选框
+        self.task_checkboxes = {}
+        self.task_vars = {}
+        
+        if self.server_task_ids:
+            for task_key, task_value in self.server_task_ids.items():
+                var = ctk.BooleanVar()
+                checkbox = ctk.CTkCheckBox(
+                    self.taskid_scrollable_frame,
+                    text=f"{task_key}. {task_value}",
+                    variable=var,
+                    font=self.custom_fonts["default"],
+                    command=lambda k=task_key, v=var: self.on_checkbox_change(k, v)
+                )
+                checkbox.pack(anchor="w", pady=2, padx=5)
+                self.task_checkboxes[task_key] = checkbox
+                self.task_vars[task_key] = var
+        else:
+            tip_label = ctk.CTkLabel(self.taskid_scrollable_frame, text="暂无服务端TaskID数据", font=self.custom_fonts["small"], text_color="#666")
+            tip_label.pack(anchor="w", pady=5, padx=5)
+    
+    def refresh_server_config(self):
+        """刷新服务端配置"""
+        self.log("正在手动刷新服务端配置...")
+        self.fetch_server_config()
+        self.log("服务端配置刷新完成！")
+        # 更新TaskID窗口列表
+        self.update_taskid_window_list()

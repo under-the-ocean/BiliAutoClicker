@@ -3,8 +3,9 @@ import sys
 import json
 
 # 基础配置
-DEFAULT_SERVER_URL = "http://ocean.run.place"
+DEFAULT_SERVER_URL = "http://biliapi.ocean.run.place"
 DEFAULT_COOKIES_DIR = "autowatch_cookies"
+APP_VERSION = "1.3.0"  # 应用版本号
 
 # 获取配置文件路径（支持PyInstaller打包）
 def get_config_path():
@@ -43,7 +44,6 @@ class ConfigManager:
             },
             "app_config": {},
             "special_features": {
-                "screen_recording": {"enabled": False, "output_path": "recordings", "fps": 10},
                 "auto_shutdown": {"enabled": True, "delay_minutes": 5}
             }
         }
@@ -69,19 +69,81 @@ class ConfigManager:
                 print(f"   客户端配置：{self.client_config}")
                 print(f"   浏览器配置：{self.browser_config}")
             else:
-                with open(UNIFIED_CONFIG_PATH, 'w', encoding='utf-8') as f:
-                    json.dump(default_config, f, ensure_ascii=False, indent=4)
-                self.client_config = default_config["client"]
-                self.browser_config = default_config["browser"]
-                self.server_config = default_config["app_config"]
-                self.special_features = default_config["special_features"]
-                print(f"⚠️ 统一配置不存在，已创建默认文件：{UNIFIED_CONFIG_PATH}")
+                print(f"⚠️ 统一配置不存在，尝试从服务端获取配置...")
+                # 从服务端获取配置
+                server_config = self.fetch_config_from_server()
+                if server_config:
+                    # 使用服务端配置
+                    self.client_config = server_config.get("client", default_config["client"])
+                    for key, val in default_config["client"].items():
+                        if key not in self.client_config:
+                            self.client_config[key] = val
+                    
+                    self.browser_config = server_config.get("browser", default_config["browser"])
+                    self.server_config = server_config.get("app_config", default_config["app_config"])
+                    self.special_features = server_config.get("special_features", default_config["special_features"])
+                    
+                    # 保存服务端配置到本地
+                    self.save_unified_config()
+                    print(f"✅ 从服务端获取配置成功，并保存到本地")
+                else:
+                    # 使用默认配置
+                    with open(UNIFIED_CONFIG_PATH, 'w', encoding='utf-8') as f:
+                        json.dump(default_config, f, ensure_ascii=False, indent=4)
+                    self.client_config = default_config["client"]
+                    self.browser_config = default_config["browser"]
+                    self.server_config = default_config["app_config"]
+                    self.special_features = default_config["special_features"]
+                    print(f"⚠️ 从服务端获取配置失败，已创建默认配置文件：{UNIFIED_CONFIG_PATH}")
         except Exception as e:
             self.client_config = default_config["client"]
             self.browser_config = default_config["browser"]
             self.server_config = default_config["app_config"]
             self.special_features = default_config["special_features"]
             print(f"❌ 统一配置加载失败：{str(e)}，使用默认配置")
+    
+    def fetch_config_from_server(self):
+        """从服务端获取配置"""
+        try:
+            import requests
+            server_url = self.client_config.get("server_url", DEFAULT_SERVER_URL)
+            # 构建完整的请求URL
+            config_url = f"{server_url.rstrip('/')}/get_config"
+            # 发送请求获取配置
+            response = requests.get(config_url, timeout=15)
+            response.raise_for_status()
+            data = response.json()
+            
+            if data.get("status") == "success":
+                content = data.get("content", {})
+                # 构建客户端配置格式
+                config = {
+                    "client": {
+                        "server_url": server_url,
+                        "local_cookies_dir": content.get("cookies_dir", DEFAULT_COOKIES_DIR)
+                    },
+                    "browser": {
+                        "browser_type": "chromium",
+                        "browser_executable_path": None
+                    },
+                    "app_config": {
+                        "cookies_dir": content.get("cookies_dir", DEFAULT_COOKIES_DIR),
+                        "reward_base_url": content.get("reward_base_url", "https://www.bilibili.com/blackboard/era/award-exchange.html"),
+                        "reward_claim_selector": content.get("reward_claim_selector", "//*[@id=\"app\"]/div/div[3]/section[2]/div[1]"),
+                        "max_reload_attempts": content.get("max_reload_attempts", 3),
+                        "reward_task_ids": content.get("reward_task_ids", {})
+                    },
+                    "special_features": content.get("special_features", {
+                        "auto_shutdown": {"enabled": True, "delay_minutes": 5}
+                    })
+                }
+                return config
+            else:
+                print(f"❌ 服务端返回错误：{data.get('message', '未知错误')}")
+                return None
+        except Exception as e:
+            print(f"❌ 从服务端获取配置失败：{str(e)}")
+            return None
     
     def save_unified_config(self):
         try:
