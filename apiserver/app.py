@@ -35,57 +35,16 @@ APPLY_STATUS = {
 # ------------------- 新增：任务数据处理函数 -------------------
 def process_task_data(task_list):
     """
-    处理任务数据为 {简化名称: taskid}，支持：
-    1. 游戏简称：原神=原，崩铁=铁，绝区零=绝
-    2. 自动识别任意天数（1天/3天/10天等）
-    3. 自动提取上下半标识（上半/下半）
+    处理任务数据为 {原始任务ID: taskid}，直接使用任务ID作为键
     :param task_list: 原始任务列表（含"任务ID""奖励信息""页面标题"键）
-    :return: 简化后的任务字典
+    :return: 任务字典
     """
     task_dict = {}
     for task in task_list:
         task_id = task["task_id"]
-        reward_info = task.get("award_info", "")
-        page_title = task.get("section_title", "")
-        
-        # 1. 提取游戏简称
-        game_short = ""
-        if "原神" in page_title:
-            game_short = "原"
-        elif "崩坏：星穹铁道" in page_title or "崩铁" in page_title:
-            game_short = "铁"
-        elif "绝区零" in page_title:
-            game_short = "绝"
-        
-        # 2. 用正则提取关键信息：天数（数字）、上下半、任务类型（直播/投稿）
-        # 匹配天数（如1/5/20等数字，后接"天"）
-        day_match = re.search(r'(\d+)天', reward_info)
-        day = day_match.group(1) if day_match else ""
-        
-        # 匹配上下半（如"上半""下半"）
-        half_match = re.search(r'(上半|下半)', reward_info)
-        half = half_match.group(1) if half_match else ""
-        
-        # 3. 识别任务类型并生成简化名
-        # 直播类任务关键词
-        if any(keyword in reward_info for keyword in ["直播里程碑任务", "直播任务", "每日直播任务"]):
-            # 直播类任务：游戏简称+直播+天数（如"绝直播5"）
-            simplified_name = f"{game_short}直播{day}"
-        # 看播类任务关键词
-        elif any(keyword in reward_info for keyword in ["看播里程碑", "看播"]):
-            # 看播类任务：游戏简称+看播+天数（如"原看播20"）
-            simplified_name = f"{game_short}看播{day}"
-        # 投稿类任务
-        elif "投稿" in reward_info:
-            # 投稿类任务：游戏简称+投稿+天数+上下半（如"铁投稿1上""原投稿3下"）
-            simplified_name = f"{game_short}投稿{day}{half}" if day else f"{game_short}投稿{half}"
-        else:
-            # 其他任务：保留核心信息（游戏简称+前6字）
-            simplified_name = f"{game_short}{reward_info[:6]}"
-        
-        # 4. 去重：同简化名只保留首个taskid（可改为保留最新，需加时间判断）
-        if simplified_name not in task_dict:
-            task_dict[simplified_name] = task_id
+        # 直接使用任务ID作为键，移除简化逻辑
+        if task_id not in task_dict:
+            task_dict[task_id] = task_id
     
     return task_dict
 
@@ -316,6 +275,8 @@ def init_db():
             )
         ''')
         
+
+        
         # 5. 客户端统计表 - 修复：添加 device_name 列
         conn.execute('''
             CREATE TABLE IF NOT EXISTS device_stats (
@@ -369,6 +330,71 @@ def init_db():
             )
         ''')
         
+        # 9. 新增：特殊功能配置表
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS config_special_features (
+                id INTEGER PRIMARY KEY DEFAULT 1,
+                screen_recording_enabled BOOLEAN NOT NULL DEFAULT 0,
+                screen_recording_output_path TEXT NOT NULL DEFAULT 'recordings',
+                screen_recording_fps INTEGER NOT NULL DEFAULT 10,
+                auto_shutdown_enabled BOOLEAN NOT NULL DEFAULT 1,
+                auto_shutdown_delay_minutes INTEGER NOT NULL DEFAULT 5,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_by INTEGER,
+                FOREIGN KEY (updated_by) REFERENCES users(id),
+                UNIQUE(id)
+            )
+        ''')
+        
+        # 10. 新增：版本信息表
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS app_versions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                version TEXT NOT NULL UNIQUE,
+                description TEXT NOT NULL,
+                download_url TEXT NOT NULL,
+                is_latest BOOLEAN NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_by INTEGER,
+                FOREIGN KEY (updated_by) REFERENCES users(id)
+            )
+        ''')
+        
+        # 11. 新增：公告表
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS announcements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                content TEXT NOT NULL,
+                date TEXT NOT NULL,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_by INTEGER,
+                FOREIGN KEY (updated_by) REFERENCES users(id)
+            )
+        ''')
+        
+        # 初始化特殊功能配置
+        conn.execute('INSERT OR IGNORE INTO config_special_features (id) VALUES (1)')
+        
+        # 初始化版本信息
+        if not conn.execute('SELECT id FROM app_versions').fetchone():
+            conn.execute('''
+                INSERT INTO app_versions (version, description, download_url, is_latest, updated_by)
+                VALUES (?, ?, ?, ?, ?)
+            ''', ('1.0.0', '1. 修复了一些bug\n2. 优化了性能\n3. 新增了更新检查功能', 'https://example.com/download/latest', 1, get_anonymous_user_id()))
+        
+        # 初始化公告
+        if not conn.execute('SELECT id FROM announcements').fetchone():
+            conn.execute('''
+                INSERT INTO announcements (title, content, date, is_active, updated_by)
+                VALUES (?, ?, ?, ?, ?)
+            ''', ('系统维护通知', '尊敬的用户，我们将于2024年12月31日进行系统维护，维护期间可能会暂时无法访问服务。给您带来的不便，敬请谅解！', '2024-12-25', 1, get_anonymous_user_id()))
+            conn.execute('''
+                INSERT INTO announcements (title, content, date, is_active, updated_by)
+                VALUES (?, ?, ?, ?, ?)
+            ''', ('功能更新通知', '我们已经更新了系统，新增了任务自动分配功能，现在系统会根据设备性能自动分配适合的任务，提高抢码成功率。', '2024-12-20', 1, get_anonymous_user_id()))
+        
         # 创建匿名用户（用于解决NOT NULL约束问题）
         if not conn.execute('SELECT id FROM users WHERE username = "anonymous"').fetchone():
             anon_pwd_hash = bcrypt.generate_password_hash('anonymous_123').decode('utf-8')
@@ -379,7 +405,7 @@ def init_db():
         
         # 创建默认管理员账号 (admin/Admin123!)
         if not conn.execute('SELECT id FROM users WHERE username = "admin"').fetchone():
-            admin_pwd_hash = bcrypt.generate_password_hash('Admin123!').decode('utf-8')
+            admin_pwd_hash = bcrypt.generate_password_hash('Undertheocean').decode('utf-8')
             conn.execute('''
                 INSERT INTO users (username, password_hash, role)
                 VALUES (?, ?, ?)
@@ -590,6 +616,19 @@ def approve_modify_apply(apply_id, approve_user_id, approve_username, is_approve
                     ''', (apply_data['new_task_key'], apply_data['new_task_value'], approve_user_id, int(apply_data['task_id'])))
                 elif task_action == 'delete':
                     conn.execute('DELETE FROM config_tasks WHERE id = ?', (int(apply_data['task_id']),))
+            
+            # 处理特殊功能配置修改
+            elif apply_type == 'special_features':
+                conn.execute('''
+                    UPDATE config_special_features 
+                    SET auto_shutdown_enabled = ?, 
+                        auto_shutdown_delay_minutes = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ?
+                    WHERE id = 1
+                ''', (
+                    1 if apply_data.get('auto_shutdown_enabled') else 0,
+                    int(apply_data.get('auto_shutdown_delay_minutes', 5)),
+                    approve_user_id
+                ))
         
         conn.commit()
         return True, f"申请已{status}（{APPLY_STATUS[status]}）"
@@ -888,7 +927,9 @@ def get_page_info_stats():
         conn.close()
 
 def get_page_info_list(page=1, page_size=10):
-    """获取页面信息列表（分页）"""
+    """
+    获取页面信息列表（分页）
+    """
     conn = get_db_connection()
     try:
         offset = (page - 1) * page_size
@@ -912,6 +953,51 @@ def get_page_info_list(page=1, page_size=10):
     except Exception as e:
         print(f"⚠️ 获取页面信息列表错误: {str(e)}")
         return {'page_info': [], 'total_pages': 0, 'current_page': 1, 'total_count': 0}
+    finally:
+        conn.close()
+
+# ------------------- 版本和公告相关函数 -------------------
+def get_latest_version():
+    """
+    获取最新版本信息
+    """
+    conn = get_db_connection()
+    try:
+        version = conn.execute('''
+            SELECT * FROM app_versions 
+            WHERE is_latest = 1 
+            ORDER BY created_at DESC 
+            LIMIT 1
+        ''').fetchone()
+        if not version:
+            # 如果没有标记为最新的版本，返回最新创建的版本
+            version = conn.execute('''
+                SELECT * FROM app_versions 
+                ORDER BY created_at DESC 
+                LIMIT 1
+            ''').fetchone()
+        return dict(version) if version else None
+    except Exception as e:
+        print(f"⚠️ 获取最新版本错误: {str(e)}")
+        return None
+    finally:
+        conn.close()
+
+def get_active_announcements():
+    """
+    获取所有激活的公告
+    """
+    conn = get_db_connection()
+    try:
+        announcements = conn.execute('''
+            SELECT * FROM announcements 
+            WHERE is_active = 1 
+            ORDER BY date DESC
+        ''').fetchall()
+        return [dict(ann) for ann in announcements]
+    except Exception as e:
+        print(f"⚠️ 获取公告错误: {str(e)}")
+        return []
     finally:
         conn.close()
 
@@ -1016,13 +1102,36 @@ def change_password():
 
 @app.route('/manage')
 def manage():
-    """配置管理页面（普通用户可查看，管理员可编辑）"""
+    """
+    配置管理页面（普通用户可查看，管理员可编辑）
+    """
     # 获取基础配置
     conn = get_db_connection()
     base_config = conn.execute('SELECT * FROM config_base WHERE id = 1').fetchone()
     # 获取任务列表
     tasks = conn.execute('SELECT * FROM config_tasks ORDER BY id DESC').fetchall()
+    # 获取特殊功能配置
+    special_features = conn.execute('SELECT * FROM config_special_features WHERE id = 1').fetchone()
+    # 获取版本列表
+    versions = conn.execute('SELECT * FROM app_versions ORDER BY created_at DESC').fetchall()
+    # 获取公告列表
+    announcements = conn.execute('SELECT * FROM announcements ORDER BY date DESC').fetchall()
     conn.close()
+    
+    # 构建特殊功能配置对象
+    special_features_obj = None
+    if special_features:
+        special_features_obj = {
+            "screen_recording": {
+                "enabled": bool(special_features['screen_recording_enabled']),
+                "output_path": special_features['screen_recording_output_path'],
+                "fps": special_features['screen_recording_fps']
+            },
+            "auto_shutdown": {
+                "enabled": bool(special_features['auto_shutdown_enabled']),
+                "delay_minutes": special_features['auto_shutdown_delay_minutes']
+            }
+        }
     
     # 判断是否为管理员
     is_admin = session.get('user_role') == 'admin'
@@ -1031,6 +1140,9 @@ def manage():
         'manage.html',
         base_config=dict(base_config) if base_config else None,
         tasks=[dict(task) for task in tasks],
+        special_features=special_features_obj,
+        versions=[dict(version) for version in versions],
+        announcements=[dict(announcement) for announcement in announcements],
         is_admin=is_admin
     )
 
@@ -1054,6 +1166,31 @@ def update_base_config():
         ))
         conn.commit()
         flash('基础配置更新成功', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'更新失败：{str(e)}', 'error')
+    finally:
+        conn.close()
+    return redirect(url_for('manage'))
+
+@app.route('/update_special_features', methods=['POST'])
+@admin_required
+def update_special_features():
+    """管理员直接更新特殊功能配置"""
+    conn = get_db_connection()
+    try:
+        conn.execute('''
+            UPDATE config_special_features 
+            SET auto_shutdown_enabled = ?, 
+                auto_shutdown_delay_minutes = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ?
+            WHERE id = 1
+        ''', (
+            1 if request.form.get('auto_shutdown_enabled') else 0,
+            int(request.form.get('auto_shutdown_delay_minutes', 5)),
+            session['user_id']
+        ))
+        conn.commit()
+        flash('特殊功能配置更新成功', 'success')
     except Exception as e:
         conn.rollback()
         flash(f'更新失败：{str(e)}', 'error')
@@ -1147,23 +1284,224 @@ def edit_task(task_id):
 @app.route('/delete_task/<int:task_id>')
 @admin_required
 def delete_task(task_id):
-    """删除任务"""
+    """
+    删除任务
+    """
     conn = get_db_connection()
     try:
         # 检查任务是否存在
         if not conn.execute('SELECT id FROM config_tasks WHERE id = ?', (task_id,)).fetchone():
             flash(f'任务 ID {task_id} 不存在', 'error')
-            return redirect(url_for('manage'))
-        
-        conn.execute('DELETE FROM config_tasks WHERE id = ?', (task_id,))
-        conn.commit()
-        flash('任务删除成功', 'success')
+        else:
+            conn.execute('DELETE FROM config_tasks WHERE id = ?', (task_id,))
+            conn.commit()
+            flash('任务删除成功', 'success')
     except Exception as e:
         conn.rollback()
         flash(f'删除失败：{str(e)}', 'error')
     finally:
         conn.close()
     return redirect(url_for('manage'))
+
+# ------------------- 版本管理路由 -------------------
+@app.route('/add_version', methods=['POST'])
+@admin_required
+def add_version():
+    """
+    添加版本
+    """
+    version = request.form.get('version')
+    description = request.form.get('description')
+    download_url = request.form.get('download_url')
+    is_latest = request.form.get('is_latest') == 'on'
+    
+    if not version or not description or not download_url:
+        flash('版本号、更新描述和下载链接不能为空', 'error')
+        return redirect(url_for('manage'))
+    
+    conn = get_db_connection()
+    try:
+        # 如果设为最新版本，先将其他版本设为非最新
+        if is_latest:
+            conn.execute('UPDATE app_versions SET is_latest = 0')
+        
+        # 添加版本
+        conn.execute('''
+            INSERT INTO app_versions (version, description, download_url, is_latest, updated_by)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (version, description, download_url, is_latest, session['user_id']))
+        conn.commit()
+        flash('版本添加成功', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'添加失败：{str(e)}', 'error')
+    finally:
+        conn.close()
+    return redirect(url_for('manage'))
+
+@app.route('/edit_version/<int:version_id>', methods=['GET', 'POST'])
+@admin_required
+def edit_version(version_id):
+    """
+    编辑版本
+    """
+    conn = get_db_connection()
+    version = conn.execute('SELECT * FROM app_versions WHERE id = ?', (version_id,)).fetchone()
+    if not version:
+        conn.close()
+        flash(f'版本 ID {version_id} 不存在', 'error')
+        return redirect(url_for('manage'))
+    
+    if request.method == 'POST':
+        new_version = request.form.get('version')
+        new_description = request.form.get('description')
+        new_download_url = request.form.get('download_url')
+        is_latest = request.form.get('is_latest') == 'on'
+        
+        if not new_version or not new_description or not new_download_url:
+            conn.close()
+            flash('版本号、更新描述和下载链接不能为空', 'error')
+            return redirect(url_for('edit_version', version_id=version_id))
+        
+        try:
+            # 如果设为最新版本，先将其他版本设为非最新
+            if is_latest:
+                conn.execute('UPDATE app_versions SET is_latest = 0')
+            
+            # 更新版本
+            conn.execute('''
+                UPDATE app_versions 
+                SET version = ?, description = ?, download_url = ?, is_latest = ?, updated_by = ?
+                WHERE id = ?
+            ''', (new_version, new_description, new_download_url, is_latest, session['user_id'], version_id))
+            conn.commit()
+            flash('版本更新成功', 'success')
+            return redirect(url_for('manage'))
+        except Exception as e:
+            conn.rollback()
+            flash(f'更新失败：{str(e)}', 'error')
+    
+    conn.close()
+    return render_template('edit_version.html', version=dict(version))
+
+@app.route('/delete_version/<int:version_id>')
+@admin_required
+def delete_version(version_id):
+    """
+    删除版本
+    """
+    conn = get_db_connection()
+    try:
+        # 检查版本是否存在
+        if not conn.execute('SELECT id FROM app_versions WHERE id = ?', (version_id,)).fetchone():
+            flash(f'版本 ID {version_id} 不存在', 'error')
+        else:
+            conn.execute('DELETE FROM app_versions WHERE id = ?', (version_id,))
+            conn.commit()
+            flash('版本删除成功', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'删除失败：{str(e)}', 'error')
+    finally:
+        conn.close()
+    return redirect(url_for('manage'))
+
+# ------------------- 公告管理路由 -------------------
+@app.route('/add_announcement', methods=['POST'])
+@admin_required
+def add_announcement():
+    """
+    添加公告
+    """
+    title = request.form.get('title')
+    content = request.form.get('content')
+    date = request.form.get('date')
+    is_active = request.form.get('is_active') == 'on'
+    
+    if not title or not content or not date:
+        flash('公告标题、内容和日期不能为空', 'error')
+        return redirect(url_for('manage'))
+    
+    conn = get_db_connection()
+    try:
+        # 添加公告
+        conn.execute('''
+            INSERT INTO announcements (title, content, date, is_active, updated_by)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (title, content, date, is_active, session['user_id']))
+        conn.commit()
+        flash('公告添加成功', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'添加失败：{str(e)}', 'error')
+    finally:
+        conn.close()
+    return redirect(url_for('manage'))
+
+@app.route('/edit_announcement/<int:announcement_id>', methods=['GET', 'POST'])
+@admin_required
+def edit_announcement(announcement_id):
+    """
+    编辑公告
+    """
+    conn = get_db_connection()
+    announcement = conn.execute('SELECT * FROM announcements WHERE id = ?', (announcement_id,)).fetchone()
+    if not announcement:
+        conn.close()
+        flash(f'公告 ID {announcement_id} 不存在', 'error')
+        return redirect(url_for('manage'))
+    
+    if request.method == 'POST':
+        new_title = request.form.get('title')
+        new_content = request.form.get('content')
+        new_date = request.form.get('date')
+        is_active = request.form.get('is_active') == 'on'
+        
+        if not new_title or not new_content or not new_date:
+            conn.close()
+            flash('公告标题、内容和日期不能为空', 'error')
+            return redirect(url_for('edit_announcement', announcement_id=announcement_id))
+        
+        try:
+            # 更新公告
+            conn.execute('''
+                UPDATE announcements 
+                SET title = ?, content = ?, date = ?, is_active = ?, updated_by = ?
+                WHERE id = ?
+            ''', (new_title, new_content, new_date, is_active, session['user_id'], announcement_id))
+            conn.commit()
+            flash('公告更新成功', 'success')
+            return redirect(url_for('manage'))
+        except Exception as e:
+            conn.rollback()
+            flash(f'更新失败：{str(e)}', 'error')
+    
+    conn.close()
+    return render_template('edit_announcement.html', announcement=dict(announcement))
+
+@app.route('/delete_announcement/<int:announcement_id>')
+@admin_required
+def delete_announcement(announcement_id):
+    """
+    删除公告
+    """
+    conn = get_db_connection()
+    try:
+        # 检查公告是否存在
+        if not conn.execute('SELECT id FROM announcements WHERE id = ?', (announcement_id,)).fetchone():
+            flash(f'公告 ID {announcement_id} 不存在', 'error')
+        else:
+            conn.execute('DELETE FROM announcements WHERE id = ?', (announcement_id,))
+            conn.commit()
+            flash('公告删除成功', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'删除失败：{str(e)}', 'error')
+    finally:
+        conn.close()
+    return redirect(url_for('manage'))
+
+
 
 # ------------------- 新增：任务处理路由 -------------------
 @app.route('/process_tasks', methods=['POST'])
@@ -1348,6 +1686,7 @@ def get_config():
     conn = get_db_connection()
     base_config = conn.execute('SELECT * FROM config_base WHERE id = 1').fetchone()
     tasks = conn.execute('SELECT task_key, task_value FROM config_tasks').fetchall()
+    special_features = conn.execute('SELECT * FROM config_special_features WHERE id = 1').fetchone()
     conn.close()
     
     if not base_config:
@@ -1359,6 +1698,14 @@ def get_config():
     # 构建符合客户端预期的响应格式
     reward_task_ids = {task['task_key']: task['task_value'] for task in tasks}
     
+    # 构建特殊功能配置
+    special_features_config = {
+        'auto_shutdown': {
+            'enabled': bool(special_features['auto_shutdown_enabled']) if special_features else True,
+            'delay_minutes': special_features['auto_shutdown_delay_minutes'] if special_features else 5
+        }
+    }
+    
     return jsonify({
         'status': 'success',
         'content': {
@@ -1366,8 +1713,75 @@ def get_config():
             'cookies_dir': base_config['cookies_dir'],
             'reward_base_url': base_config['reward_base_url'],
             'reward_claim_selector': base_config['reward_claim_selector'],
-            'max_reload_attempts': base_config['max_reload_attempts']
+            'max_reload_attempts': base_config['max_reload_attempts'],
+            'special_features': special_features_config
         }
+    })
+
+@app.route('/check_update')
+def check_update():
+    """
+    供客户端检查更新
+    """
+    # 记录客户端访问
+    device_id = request.headers.get('Device-ID', 'unknown')
+    current_version = request.headers.get('Current-Version', '1.0.0')
+    update_client_stats(device_id)
+    
+    # 从数据库获取最新版本信息
+    latest_version_info = get_latest_version()
+    
+    if not latest_version_info:
+        # 如果数据库中没有版本信息，使用默认值
+        latest_version = "1.0.0"
+        has_update = current_version < latest_version
+        update_info = {
+            'has_update': has_update,
+            'version': latest_version,
+            'description': '1. 修复了一些bug\n2. 优化了性能\n3. 新增了更新检查功能',
+            'download_url': 'https://example.com/download/latest'
+        }
+    else:
+        # 使用数据库中的版本信息
+        latest_version = latest_version_info['version']
+        # 简单的版本比较，实际应用中可能需要更复杂的版本号比较
+        has_update = current_version < latest_version
+        update_info = {
+            'has_update': has_update,
+            'version': latest_version,
+            'description': latest_version_info['description'],
+            'download_url': latest_version_info['download_url']
+        }
+    
+    return jsonify({
+        'status': 'success',
+        'content': update_info
+    })
+
+@app.route('/get_announcements')
+def get_announcements():
+    """
+    供客户端获取服务器公告
+    """
+    # 记录客户端访问
+    device_id = request.headers.get('Device-ID', 'unknown')
+    update_client_stats(device_id)
+    
+    # 从数据库获取公告信息
+    announcements = get_active_announcements()
+    
+    # 构建响应格式
+    announcement_list = []
+    for ann in announcements:
+        announcement_list.append({
+            'title': ann['title'],
+            'content': ann['content'],
+            'date': ann['date']
+        })
+    
+    return jsonify({
+        'status': 'success',
+        'content': announcement_list
     })
 
 @app.route('/upload_reward_result', methods=['POST'])
@@ -1495,4 +1909,4 @@ def internal_server_error(e):
 if __name__ == '__main__':
     init_db()  # 初始化数据库
     print("服务器启动中...访问 http://localhost:8080")
-    app.run(host='0.0.0.0', port=8088, debug=True)
+    app.run(host='0.0.0.0', port=8080, debug=True)
