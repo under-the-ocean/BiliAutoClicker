@@ -3,6 +3,7 @@
 // @namespace    https://github.com/under-the-ocean
 // @version      0.5.0
 // @description  远程读取任务、任务配置管理、领取接口监控、定时连点、批量上报
+// @author       under-the-ocean
 // @match        https://www.bilibili.com/blackboard/era/award-exchange.html?*
 // @connect      150.242.246.137
 // @grant        GM_xmlhttpRequest
