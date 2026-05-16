@@ -12,8 +12,8 @@
 // @grant        GM_deleteValue
 // @grant        GM_listValues
 // @run-at       document-start
-// @downloadURL  https://your-server.com/biliauto-tampermonkey.user.js
-// @updateURL    https://your-server.com/biliauto-tampermonkey.user.js
+// @downloadURL  gh-proxy.com/https://github.com/under-the-ocean/BiliAutoClicker/raw/refs/heads/main/biliauto-tampermonkey-client.user.js
+// @updateURL    gh-proxy.com/https://github.com/under-the-ocean/BiliAutoClicker/raw/refs/heads/main/biliauto-tampermonkey-client.user.js
 // ==/UserScript==
 
 (function () {
