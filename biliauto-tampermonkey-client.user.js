@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliAutoClicker - 油猴客户端
 // @namespace    https://github.com/under-the-ocean
-// @version      0.5.0
+// @version      0.5.1
 // @description  远程读取任务、任务配置管理、领取接口监控、定时连点、批量上报
 // @author       under-the-ocean
 // @match        https://www.bilibili.com/blackboard/era/award-exchange.html?*
@@ -13,8 +13,8 @@
 // @grant        GM_deleteValue
 // @grant        GM_listValues
 // @run-at       document-start
-// @downloadURL  gh-proxy.com/https://github.com/under-the-ocean/BiliAutoClicker/raw/refs/heads/main/biliauto-tampermonkey-client.user.js
-// @updateURL    gh-proxy.com/https://github.com/under-the-ocean/BiliAutoClicker/raw/refs/heads/main/biliauto-tampermonkey-client.user.js
+// @downloadURL  https://gh-proxy.com/https://raw.githubusercontent.com/under-the-ocean/Bili_monkey/main/biliauto-tampermonkey-client.user.js
+// @updateURL    https://gh-proxy.com/https://raw.githubusercontent.com/under-the-ocean/Bili_monkey/main/biliauto-tampermonkey-client.user.js
 // ==/UserScript==
 
 (function () {
